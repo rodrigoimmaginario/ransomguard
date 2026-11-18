@@ -22,8 +22,17 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = asService ? AppContext.BaseDirectory : null
 });
 builder.Host.UseWindowsService(o => o.ServiceName = "RansomGuardPanel");
-if (OperatingSystem.IsWindows())
-    builder.Services.Configure<Microsoft.Extensions.Logging.EventLog.EventLogSettings>(o => o.SourceName = "RansomGuardPanel");
+// Log de Eventos do Windows só como serviço: a fonte "RansomGuardPanel" é criada pelo instalador. Fora do serviço
+// (testes, execução interativa) escrever numa fonte inexistente falhava de vez em quando com "Access is denied".
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+if (asService && OperatingSystem.IsWindows())
+    AddPanelEventLog(builder.Logging);
+
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+static void AddPanelEventLog(ILoggingBuilder logging) =>
+    logging.AddEventLog(new Microsoft.Extensions.Logging.EventLog.EventLogSettings { SourceName = "RansomGuardPanel" });
 
 // A4/D9 — dados fora da pasta do executável, em pasta que só SYSTEM, administradores e a conta do serviço alcançam.
 var paths = PanelPaths.Resolve(builder.Configuration, builder.Environment.ContentRootPath, builder.Environment.IsDevelopment());
