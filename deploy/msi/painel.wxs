@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Instalador do PAINEL do RansomGuard (o backend self-hosted).
+
+  O painel é um SERVIÇO DO WINDOWS (RansomGuardPanel): sobe com a máquina e não depende de ninguém logado — o alerta
+  de agente silencioso, a política e o relay do catálogo dependem dele estar no ar.
+
+    - Conta: NT SERVICE\RansomGuardPanel (conta virtual, sem senha, sem direito de administrador).
+    - Binários: Program Files\RansomGuard\Painel (só leitura para o serviço).
+    - Dados: %ProgramData%\RansomGuard\Painel (banco, chave da instalação, segredos, cache do catálogo), criada já
+      restrita a SYSTEM, administradores e ao serviço. A desinstalação NÃO apaga os dados.
+    - Firewall: regra de entrada para a porta HTTPS (5001) nos perfis de domínio e privado. Um serviço não recebe o
+      aviso interativo do Windows; sem a regra, os agentes dos outros servidores não alcançam o painel.
+      OPENFIREWALL=0 não cria a regra (porta diferente, ou firewall gerenciado por GPO).
+
+  O pacote leva TODA a saída publicada (executável, biblioteca nativa do SQLite, wwwroot). A RC 0.9.0 levava só o
+  executável e o appsettings.json, e por isso o painel instalado por MSI não iniciava.
+
+  ⚠️ NÃO ASSINADO nesta fase (decisão do owner). O SmartScreen avisará sobre editor desconhecido.
+
+  Build: wix build painel.wxs -arch x64 -d BinDir=<saída do publish> -d Version=x.y.z
+         -ext WixToolset.Util.wixext -ext WixToolset.Firewall.wixext -o saida.msi
+  Teste de instalação real: tools/test-msi-install.ps1 (roda na CI).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:fw="http://wixtoolset.org/schemas/v4/wxs/firewall">
+
+  <Package Name="RansomGuard — Painel"
+           Manufacturer="Rodrigo Immaginario"
+           Version="$(var.Version)"
+           UpgradeCode="8E3F1B62-7C4A-4E19-9D5B-2A1F6C8D4E71"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <!-- Atualização no lugar: instalar uma versão nova remove a anterior. -->
+    <MajorUpgrade DowngradeErrorMessage="Uma versão mais recente do RansomGuard Painel já está instalada." />
+
+    <Property Id="ARPURLINFOABOUT" Value="https://www.ransomguard.com.br" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/rodrigoimmaginario/ransomguard/tree/main/docs" />
+    <Property Id="OPENFIREWALL" Value="1" Secure="yes" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="RansomGuard">
+        <Directory Id="PAINELFOLDER" Name="Painel" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="RGDATAFOLDER" Name="RansomGuard">
+        <Directory Id="PAINELDATAFOLDER" Name="Painel" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuFolder" Name="RansomGuard" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="PainelFiles" Directory="PAINELFOLDER">
+
+      <!-- Executável + registro do SERVIÇO DO WINDOWS -->
+      <Component Id="ServerExe" Guid="B41D9A07-5E62-4C88-A3F1-7D2E9B6C0A54">
+        <File Id="RansomGuardServerExe"
+              Source="$(var.BinDir)\RansomGuard.Server.exe"
+              KeyPath="yes" />
+
+        <ServiceInstall Id="PanelServiceInstall"
+                        Name="RansomGuardPanel"
+                        DisplayName="RansomGuard Panel"
+                        Description="Painel do RansomGuard: recebe os dados dos agentes, alerta, distribui a política de resposta e o catálogo."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="NT SERVICE\RansomGuardPanel"
+                        Vital="yes">
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="restart"
+                              RestartServiceDelayInSeconds="60" />
+        </ServiceInstall>
+
+        <ServiceControl Id="PanelServiceControl"
+                        Name="RansomGuardPanel"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+
+      <!-- Todo o resto da saída publicada. O que é só de depuração ou de hospedagem em IIS fica fora. -->
+      <Files Include="$(var.BinDir)\**">
+        <Exclude Files="$(var.BinDir)\RansomGuard.Server.exe" />
+        <Exclude Files="$(var.BinDir)\**\*.pdb" />
+        <Exclude Files="$(var.BinDir)\web.config" />
+        <Exclude Files="$(var.BinDir)\aspnetcorev2_inprocess.dll" />
+      </Files>
+
+      <!-- Origem dos eventos no log de Aplicativo: a conta do serviço não tem direito de criá-la sozinha. -->
+      <Component Id="PanelEventSource" Guid="2F7C4D91-3A68-4B5E-9C10-6D8E1F2A7B43">
+        <RegistryKey Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\EventLog\Application\RansomGuardPanel">
+          <RegistryValue Name="EventMessageFile" Type="expandable"
+                         Value="%SystemRoot%\Microsoft.NET\Framework64\v4.0.30319\EventLogMessages.dll" KeyPath="yes" />
+          <RegistryValue Name="TypesSupported" Type="integer" Value="7" />
+        </RegistryKey>
+      </Component>
+
+      <!-- Regra de firewall para os agentes alcançarem o painel (opt-out: OPENFIREWALL=0). -->
+      <Component Id="PanelFirewall" Guid="5A9E2C37-8B14-4F60-A7D3-1C6B9E4F0D25" Condition="OPENFIREWALL = 1">
+        <RegistryValue Root="HKLM" Key="SOFTWARE\RansomGuard\Painel" Name="FirewallRule" Type="integer" Value="1" KeyPath="yes" />
+        <fw:FirewallException Id="PanelHttpsDomain" Name="RansomGuard Panel HTTPS (domain)"
+                              Description="Agentes do RansomGuard e o navegador do administrador alcançam o painel."
+                              Port="5001" Protocol="tcp" Profile="domain" Scope="any" />
+        <fw:FirewallException Id="PanelHttpsPrivate" Name="RansomGuard Panel HTTPS (private)"
+                              Description="Agentes do RansomGuard e o navegador do administrador alcançam o painel."
+                              Port="5001" Protocol="tcp" Profile="private" Scope="any" />
+      </Component>
+    </ComponentGroup>
+
+    <!--
+      Pasta de dados, criada já restrita (D9). SDDL em vez de nome de conta: no momento em que o instalador cria a
+      pasta o serviço ainda não existe, e "NT SERVICE\RansomGuardPanel" não resolveria. O SID de um serviço é
+      derivado do nome (sc showsid RansomGuardPanel) e o teste de instalação confere que continua batendo.
+        SY = SYSTEM, BA = Administradores, S-1-5-80-… = o serviço. "P" = não herda a permissão de ProgramData.
+    -->
+    <ComponentGroup Id="PainelData" Directory="PAINELDATAFOLDER">
+      <Component Id="PainelDataFolder" Guid="7D1B5E84-2C93-4A06-B8F7-3E5A0C9D6F12">
+        <RegistryValue Root="HKLM" Key="SOFTWARE\RansomGuard\Painel" Name="DataDir" Type="string" Value="[PAINELDATAFOLDER]" KeyPath="yes" />
+        <CreateFolder>
+          <PermissionEx Sddl="D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;S-1-5-80-2117528005-344204068-2938588982-2536083958-2915349141)" />
+        </CreateFolder>
+      </Component>
+    </ComponentGroup>
+
+    <!-- Atalhos no Menu Iniciar: o painel é uma página; o atalho abre o navegador. -->
+    <ComponentGroup Id="PainelShortcuts" Directory="AppMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="D63F1C29-708A-4EAA-C5B3-9F401D8E2C76">
+        <Shortcut Id="PainelShortcut"
+                  Name="RansomGuard — Painel"
+                  Description="Abre o painel do RansomGuard no navegador (Score de Risco, incidentes, política)"
+                  Target="https://localhost:5001" />
+        <Shortcut Id="DocShortcut"
+                  Name="RansomGuard — Documentação"
+                  Target="https://www.ransomguard.com.br/#/doc" />
+        <RemoveFolder Id="RemoveAppMenuFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\RansomGuard\Painel"
+                       Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="RansomGuard Painel" Level="1">
+      <ComponentGroupRef Id="PainelFiles" />
+      <ComponentGroupRef Id="PainelData" />
+      <ComponentGroupRef Id="PainelShortcuts" />
+    </Feature>
+
+  </Package>
+</Wix>

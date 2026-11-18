@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\RansomGuard.Core\RansomGuard.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
+    <!-- C2: só para gerar migrações (dotnet ef, que compila em Debug); fora de Release, logo fora do pacote. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14" PrivateAssets="all" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.14" />
+  </ItemGroup>
+
+  <!--
+    B7: o SDK Web trata todo *.json da pasta do projeto como conteúdo e o copia para a saída. Era assim que a chave
+    do painel de desenvolvimento, o cache do catálogo e a configuração de desenvolvimento iam parar no pacote.
+    O que o painel CRIA ao rodar nunca é conteúdo do pacote.
+  -->
+  <ItemGroup>
+    <Content Remove="install-key.json;install-secrets.json;catalog-cache\**" />
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

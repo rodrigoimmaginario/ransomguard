@@ -1,0 +1,82 @@
+@page "/contas"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "admin")]
+@using RansomGuard.Server.Auth
+@using RansomGuard.Server.Data
+@inject OwnerAccountService Accounts
+@inject RansomGuardDb Db
+
+<PageTitle>RansomGuard — Contas</PageTitle>
+
+<h1 class="rg-h1">Contas do painel</h1>
+<p class="rg-sub">Uma conta <b>admin</b> (altera política, reverte, gere contas e backup) e quantas contas <b>leitura</b> forem necessárias (SOC, auditoria, gestão) — veem tudo, não mudam nada.</p>
+
+<table class="rg">
+    <thead><tr><th>Usuário</th><th>Papel</th><th>Criada</th><th></th></tr></thead>
+    <tbody>
+        @foreach (var a in _accounts)
+        {
+            <tr>
+                <td>@a.Username</td>
+                <td><span class="pill @(a.Role == Roles.Admin ? "p-crit" : "p-ok")">@a.Role</span></td>
+                <td>@a.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                <td>
+                    @if (a.Id != 1)
+                    {
+                        <EditForm Model="this" FormName="@($"remove-{a.Id}")" OnSubmit="@(() => RemoveAsync(a.Id))">
+                            <button class="rg-btn" type="submit">Remover</button>
+                        </EditForm>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h2 class="rg-h2">Nova conta de leitura</h2>
+@if (_message is not null) { <div class="rg-empty">@_message</div> }
+<EditForm Model="Form" FormName="add-viewer" OnValidSubmit="AddAsync">
+    <table class="rg"><tbody>
+        <tr><th>Usuário</th><td><InputText @bind-Value="Form.Username" autocomplete="off" /></td></tr>
+        <tr><th>Senha (mín. 8)</th><td><InputText @bind-Value="Form.Password" type="password" autocomplete="new-password" /></td></tr>
+    </tbody></table>
+    <p style="margin-top:12px"><button class="rg-btn" type="submit">Criar conta de leitura</button></p>
+</EditForm>
+
+<h2 class="rg-h2">Backup</h2>
+<p class="rg-sub">Banco (cópia consistente), chave da instalação e segredos num zip. Para restaurar: pare o serviço do painel, coloque os três arquivos de volta ao lado do executável e suba.</p>
+<p><a class="rg-btn" href="/backup/ransomguard-backup.zip">Baixar backup (.zip)</a></p>
+
+@code {
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? Auth { get; set; }
+    [SupplyParameterFromForm] private ViewerForm Form { get; set; } = new();
+    private List<OwnerAccount> _accounts = new();
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // L9 (laboratório, sessão 2): quando outro formulário desta tela é enviado, o deste chega nulo — e a tela dava 500.
+        Form ??= new();
+        _accounts = await Accounts.ListAsync();
+    }
+
+    private async Task<string> MeAsync() => (Auth is null ? null : (await Auth).User.Identity?.Name) ?? "-";
+
+    private async Task AddAsync()
+    {
+        var ok = await Accounts.AddViewerAsync(Form.Username ?? "", Form.Password ?? "", DateTime.UtcNow);
+        _message = ok ? $"Conta de leitura '{Form.Username}' criada." : "Não foi possível criar: nome repetido/curto ou senha menor que 8 caracteres.";
+        if (ok) await OperatorAudit.RecordAsync(Db, await MeAsync(), "account.add", Form.Username ?? "");
+        Form = new();
+        _accounts = await Accounts.ListAsync();
+    }
+
+    private async Task RemoveAsync(int id)
+    {
+        var name = _accounts.FirstOrDefault(a => a.Id == id)?.Username ?? id.ToString();
+        if (await Accounts.RemoveAsync(id))
+            await OperatorAudit.RecordAsync(Db, await MeAsync(), "account.remove", name);
+        _accounts = await Accounts.ListAsync();
+    }
+
+    public sealed class ViewerForm { public string? Username { get; set; } public string? Password { get; set; } }
+}

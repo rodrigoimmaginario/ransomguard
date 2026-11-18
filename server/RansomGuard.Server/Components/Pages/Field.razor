@@ -1,0 +1,11 @@
+@* Rótulo + campo + dica curta, para os formulários de canal ficarem consistentes. *@
+<label class="nf-row nf-field">
+    <span>@label @if (!string.IsNullOrEmpty(hint)) { <em class="nf-hint">— @hint</em> }</span>
+    @ChildContent
+</label>
+
+@code {
+    [Parameter] public string label { get; set; } = "";
+    [Parameter] public string? hint { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

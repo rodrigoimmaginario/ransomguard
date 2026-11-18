@@ -1,0 +1,89 @@
+:root {
+    --ink: #2B1527; --muted: #7A5374; --line: #EDDAEA; --card: #fff; --surface-2: #F6EEF4; --main-bg: #F9F1F8;
+    --accent: #9C3F7C; --accent-ink: #86336A;
+    --crit: #C0433B; --att: #9A6A0C; --good: #157F55; --info: #2A6FC4;
+}
+/* Passo 12: tema escuro alinhado ao site (quase preto neutro, ameixa como acento) — segue a preferência do sistema. */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ink: #F4E9F1; --muted: #BFA5BA; --line: #3A2A37; --card: #221C21; --surface-2: #2B232A; --main-bg: #151215;
+        --accent: #C77CB0; --accent-ink: #E3B5D6;
+        --crit: #F08A82; --att: #E3B65C; --good: #5FCB9A; --info: #7FB2F0;
+    }
+    body { background: var(--main-bg); }
+    .rg-card .big, .rg-score-hero .n { color: var(--ink); }
+    .pill.p-crit, .rg-band.b-crit { background: rgba(240,138,130,.18); color: var(--crit); }
+    .pill.p-att, .rg-band.b-att { background: rgba(227,182,92,.18); color: var(--att); }
+    .pill.p-good, .pill.p-ok, .rg-band.b-good { background: rgba(95,203,154,.18); color: var(--good); }
+    .pill.p-high { background: rgba(240,138,130,.18); color: var(--crit); }
+    .pill.p-med { background: rgba(227,182,92,.18); color: var(--att); }
+    code, pre { color: var(--ink); }
+    input, select, textarea { background: var(--surface-2); color: var(--ink); border-color: var(--line); }
+}
+html, body { margin: 0; }
+body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); }
+.rg-h1 { font-size: 26px; font-weight: 800; margin: 0 0 4px; }
+.rg-sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+.rg-h2 { font-size: 17px; font-weight: 700; margin: 28px 0 12px; }
+
+.rg-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.rg-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.rg-card .big { font-size: 34px; font-weight: 800; line-height: 1; }
+.rg-card .lbl { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+
+.rg-score-hero { display: flex; align-items: baseline; gap: 10px; }
+.rg-score-hero .n { font-size: 56px; font-weight: 800; line-height: 1; }
+.rg-score-hero .d { color: var(--muted); font-size: 20px; }
+
+.rg-band { font-size: 12px; font-weight: 700; padding: 3px 11px; border-radius: 20px; color: #fff; display: inline-block; }
+.b-crit { background: var(--crit); } .b-att { background: var(--att); } .b-good { background: var(--good); }
+
+table.rg { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 14px; }
+table.rg th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 10px 14px; border-bottom: 1px solid var(--line); background: #FAF3F9; }
+table.rg td { padding: 11px 14px; border-bottom: 1px solid var(--line); }
+table.rg tr:last-child td { border-bottom: 0; }
+table.rg a { color: var(--accent-ink); text-decoration: none; font-weight: 600; }
+
+.pill { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
+.p-crit { background: color-mix(in srgb, var(--crit) 14%, #fff); color: var(--crit); }
+.p-att  { background: color-mix(in srgb, var(--att) 16%, #fff); color: var(--att); }
+.p-good { background: color-mix(in srgb, var(--good) 14%, #fff); color: var(--good); }
+.p-high { background: color-mix(in srgb, var(--crit) 16%, #fff); color: var(--crit); }
+.p-med  { background: color-mix(in srgb, var(--att) 16%, #fff); color: var(--att); }
+
+.rg-btn { background: var(--accent); color: #fff; border: 0; padding: 9px 16px; border-radius: 9px; text-decoration: none; font-size: 14px; display: inline-block; }
+.rg-btn:hover { background: var(--accent-ink); }
+.rg-fix { color: var(--muted); font-size: 13px; }
+.rg-empty { color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: 14px; padding: 24px; text-align: center; }
+
+/* Notificações (F13) */
+.p-ok { background: color-mix(in srgb, var(--good) 14%, #fff); color: var(--good); }
+.nf-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.nf-row:last-child { border-bottom: 0; }
+.nf-row > span { color: var(--ink); font-size: 14px; }
+.nf-field { flex-direction: column; align-items: stretch; gap: 5px; }
+.nf-field > span { color: var(--muted); font-size: 12.5px; }
+.nf-row input[type=text], .nf-row input:not([type]), .nf-row input[type=number], .nf-row input[type=password], .nf-row select {
+  background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 100%; max-width: 420px; }
+.nf-hint { color: var(--soft); font-style: normal; font-size: 12px; }
+.nf-guide { background: #FAF3F9; border-left: 3px solid var(--accent-2, var(--accent)); border-radius: 0 8px 8px 0; padding: 10px 13px; margin-top: 10px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.nf-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.nf-result { font-size: 13px; }
+.nf-result.ok { color: var(--good); }
+.nf-result.err { color: var(--crit); }
+
+/* Auth (F14): telas de setup e login, centradas e sóbrias */
+.auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg, #F9F1F8); }
+.auth-card { background: #fff; border: 1px solid var(--line, #EDDAEA); border-radius: 16px; padding: 30px 28px; width: 100%; max-width: 380px; box-shadow: 0 12px 30px -12px rgba(122,46,104,.22); }
+.auth-field { display: block; margin: 14px 0; }
+.auth-field span { display: block; font-size: 13px; color: var(--muted, #7A5374); margin-bottom: 5px; }
+.auth-field input { width: 100%; box-sizing: border-box; border: 1px solid var(--line, #EDDAEA); border-radius: 9px; padding: 10px 12px; font-size: 15px; }
+.auth-field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.auth-card .rg-btn { width: 100%; text-align: center; margin-top: 8px; padding: 11px; font-size: 15px; }
+.auth-erro { background: color-mix(in srgb, var(--crit, #C0433B) 12%, #fff); border-left: 3px solid var(--crit, #C0433B); border-radius: 0 8px 8px 0; padding: 10px 13px; font-size: 13px; color: var(--ink, #2B1527); margin: 8px 0; }
+.rg-user { display: block; font-size: 12px; color: var(--muted, #7A5374); font-weight: 600; }
+.rg-logout { background: none; border: 1px solid var(--line, #EDDAEA); color: var(--muted, #7A5374); border-radius: 8px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+.rg-logout:hover { border-color: var(--accent); color: var(--accent-ink); }
+
+/* F37: valores textuais longos (share, conta) nos cards grandes não cortam */
+.rg-card .big.rg-big-text { font-size: 19px; overflow-wrap: anywhere; line-height: 1.25; }

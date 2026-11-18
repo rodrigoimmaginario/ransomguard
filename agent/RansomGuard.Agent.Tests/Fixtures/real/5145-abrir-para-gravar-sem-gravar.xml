@@ -1,0 +1,19 @@
+<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>5145</EventID><Version>0</Version><Level>0</Level><Task>12811</Task><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><TimeCreated SystemTime='2026-11-16T13:33:00.4640719Z'/><EventRecordID>583502</EventRecordID><Correlation/><Execution ProcessID='4' ThreadID='1464'/><Channel>Security</Channel><Computer>runnervmm7ud1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-5-21-3289802278-1561746829-1498425070-500</Data><Data Name='SubjectUserName'>runneradmin</Data><Data Name='SubjectDomainName'>runnervmm7ud1</Data><Data Name='SubjectLogonId'>0xd5cc9</Data><Data Name='ObjectType'>File</Data><Data Name='IpAddress'>::1</Data><Data Name='IpPort'>62051</Data><Data Name='ShareName'>\\*\rgit2b2f7ca9</Data><Data Name='ShareLocalPath'>\??\C:\rg-it-2b2f7ca9\Financeiro</Data><Data Name='RelativeTargetName'>so-abrir.docx</Data><Data Name='AccessMask'>0x12019f</Data><Data Name='AccessList'>%%1538
+				%%1541
+				%%4416
+				%%4417
+				%%4418
+				%%4419
+				%%4420
+				%%4423
+				%%4424
+				</Data><Data Name='AccessReason'>%%1538:	%%1801	D:(A;;FA;;;WD)
+				%%1541:	%%1801	D:(A;;FA;;;WD)
+				%%4416:	%%1801	D:(A;;FA;;;WD)
+				%%4417:	%%1801	D:(A;;FA;;;WD)
+				%%4418:	%%1801	D:(A;;FA;;;WD)
+				%%4419:	%%1801	D:(A;;FA;;;WD)
+				%%4420:	%%1801	D:(A;;FA;;;WD)
+				%%4423:	%%1801	D:(A;;FA;;;WD)
+				%%4424:	%%1801	D:(A;;FA;;;WD)
+				</Data></EventData></Event>

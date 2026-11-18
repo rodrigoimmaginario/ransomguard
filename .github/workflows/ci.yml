@@ -1,0 +1,221 @@
+name: CI
+
+# F21 — portão de regressão automatizado. Roda em Windows porque o serviço do agente é
+# net10.0-windows e os testes usam APIs do Windows. Espelha o que a governança Ariad exige:
+# testes verdes + cobertura mínima + simuladores no exit esperado + serviço compila + sem
+# dependência vulnerável. A release sai daqui, só a partir de tag v* (job release, o único com escrita); criar a tag
+# é decisão do mantenedor. Não há deploy do site neste workflow.
+
+# Controle de custo: mudança que só toca documentação e registros (Markdown, .ariad, internal) não dispara a CI —
+# runner Windows em repositório privado custa minutos em dobro. Execuções superadas são canceladas.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore: ['**/*.md', '.ariad/**', 'internal/**']
+  pull_request:
+    branches: [main]
+    paths-ignore: ['**/*.md', '.ariad/**', 'internal/**']
+  workflow_dispatch:
+    inputs:
+      ensaio_release:
+        description: 'Ensaio do job de release: monta os artefatos sem publicar'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore RansomGuard.sln
+
+      - name: Build (solução)
+        run: dotnet build RansomGuard.sln --no-restore --configuration Debug
+
+      - name: Testes + gate de cobertura
+        # O gate de cobertura (Core >=85% linha, Agent >=70% linha) está nos .csproj de teste,
+        # ativado por CollectCoverage=true. Falha o build se a cobertura cair abaixo do piso.
+        # Sem --no-build: com ele o coverlet.msbuild instrumenta o assembly do servidor mas não registra acertos (0%) no runner;
+        # o build é incremental sobre o passo anterior.
+        run: dotnet test RansomGuard.sln --configuration Debug -p:CollectCoverage=true
+
+      - name: Cobertura do servidor (coletor em processo + portão 70/50 com componentes Razor)
+        shell: bash
+        run: |
+          rm -rf out/cov
+          dotnet test server/RansomGuard.Server.Tests --configuration Debug --no-build --settings server/RansomGuard.Server.Tests/coverage.runsettings --collect:"XPlat Code Coverage" --results-directory out/cov
+          node tools/coverage-gate.mjs out/cov 70 50 RansomGuard.Server
+
+      - name: Regressão visual do painel (F37 — painel real + DemoSeed + Chrome do runner)
+        shell: bash
+        run: node tools/panel-layout-check.mjs
+
+      - name: Build do serviço do agente (fora da .sln, net10-windows)
+        run: dotnet build agent/RansomGuard.Agent.Service/RansomGuard.Agent.Service.csproj --configuration Release
+
+      # M1a — a cola com o Windows testada num Windows de verdade. O runner é um Windows Server com processo elevado:
+      # o coletor de produção lê o Security log real, com share SMB real e auditoria ligada pelo próprio teste.
+      # RG_REQUIRE_ELEVATED=1: se o processo não estiver elevado, os testes FALHAM em vez de pular.
+      # O file screen do produto é testado num FSRM de verdade: a role instala no runner em ~3 min, sem reinício
+      # (sondado em 2026-11-16, Windows Server 2025).
+      - name: Instalar FSRM no runner
+        shell: pwsh
+        run: |
+          $r = Install-WindowsFeature FS-Resource-Manager -IncludeManagementTools
+          if (-not $r.Success -or $r.RestartNeeded -ne 'No') { throw "FSRM não instalou limpo: sucesso=$($r.Success) reinício=$($r.RestartNeeded)" }
+          Get-FsrmSetting | Out-Null
+
+      - name: Serviço do agente em Windows real (Security log, share SMB, FSRM, catálogo por TLS com pin)
+        env:
+          RG_REQUIRE_ELEVATED: "1"
+          RG_FSRM_TESTS: "1"
+          RG_FIXTURE_DIR: ${{ github.workspace }}\out\real-events
+        run: dotnet test agent/RansomGuard.Agent.Service.Tests --configuration Release --logger "console;verbosity=detailed"
+
+      - name: Eventos reais capturados (XML bruto, base das fixtures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-events
+          path: out/real-events
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # M1e/M1f — os dois MSIs instalados de verdade: painel como serviço com conta virtual, HTTPS respondendo, dados em
+      # pasta restrita, segredos protegidos; agente instalado com o comando que o painel mostra, aparecendo no painel
+      # por HTTPS com o certificado fixado; desinstalação limpa. O MSI do painel da RC não iniciava e nada percebia.
+      - name: MSIs do painel e do agente instalados em Windows real (serviços, permissões, segredos, firewall, batimento)
+        shell: pwsh
+        # 2026-11-17: quatro execuções seguidas travaram até o runner perder contato (~55 min), com e sem a mudança
+        # do dia; causa não identificada. O teto faz a trava falhar em 15 min e subir os logs da instalação.
+        timeout-minutes: 15
+        run: ./tools/test-msi-install.ps1
+
+      - name: Logs da instalação
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: panel-msi-logs
+          path: out/msi-test/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Simuladores (portões de regressão)
+        # Regulares saem 0; SecurityAudit sai 1 por desenho (AUD-1, gate do owner). O script
+        # trata isso e só passa se todos baterem o exit esperado. O próprio script compila cada
+        # simulador (3 ficam fora da .sln), então não depende de um build Release prévio.
+        timeout-minutes: 20
+        run: pwsh tools/run-simulators.ps1
+
+      - name: Dependências vulneráveis (SAST leve)
+        shell: pwsh
+        run: |
+          $out = dotnet list RansomGuard.sln package --vulnerable --include-transitive 2>&1 | Out-String
+          Write-Host $out
+          if ($out -match '>\s+\S+\s+\S+\s+(Critical|High)') {
+            Write-Error "Dependência vulnerável (Critical/High) encontrada."
+            exit 1
+          }
+          Write-Host "Sem dependências Critical/High."
+
+      - name: Formatação (informativo, não bloqueia)
+        continue-on-error: true
+        run: dotnet format RansomGuard.sln --verify-no-changes --verbosity minimal
+
+  site-and-api:
+    # F31 — canal de candidatura ao piloto: função serverless (api/pilot.mjs) + contrato do site.
+    # Zero dependências npm: node --test para a função; Chrome do runner para o site.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Varredura de caracteres corrompidos (edição automatizada)
+        run: node tools/scan-mojibake.mjs
+
+      - name: Testes da função de candidatura (antispam, Turnstile, Resend, fail-closed)
+        run: node --test "tests/**/*.test.mjs"
+
+      - name: Regressão do site (layout, PT/EN, light/dark, canal do piloto)
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node tools/site-layout-check.mjs
+  # M4 — release pública. Só roda em tag v* (publica) ou por workflow_dispatch com ensaio_release (monta, atesta se o
+  # repositório for público e guarda como artefato, sem publicar). É o único job com permissão de escrita.
+  release:
+    needs: [build-test, site-and-api]
+    if: github.ref_type == 'tag' || inputs.ensaio_release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Versão e notas
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            if ($env:GITHUB_REF_NAME -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$') { throw "tag fora do formato vX.Y.Z: $env:GITHUB_REF_NAME" }
+            $v = $env:GITHUB_REF_NAME.Substring(1)
+            if (-not (Test-Path "docs/release-notes/$v.md")) { throw "faltam as notas da versão: docs/release-notes/$v.md" }
+          } else { $v = '0.0.0-ensaio' }
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Montar MSIs, provocador e SHA-256
+        shell: pwsh
+        run: ./tools/build-release.ps1 -Version $env:VERSION -OutDir out/release
+
+      - name: Atestado de proveniência (liga cada artefato a este workflow e commit)
+        if: github.event.repository.visibility == 'public'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            out/release/*.msi
+            out/release/*.exe
+
+      - name: Guardar os artefatos do ensaio
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ensaio
+          path: out/release/
+          retention-days: 7
+
+      - name: Publicar a release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $files = Get-ChildItem out/release -File | Where-Object { $_.Extension -in '.msi', '.exe', '.sha256' -or $_.Name -eq 'SHA256SUMS.txt' } | ForEach-Object FullName
+          gh release create $env:GITHUB_REF_NAME @files --title "RansomGuard $env:GITHUB_REF_NAME" --notes-file "docs/release-notes/$env:VERSION.md" --verify-tag

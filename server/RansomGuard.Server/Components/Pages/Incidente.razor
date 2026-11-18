@@ -1,0 +1,167 @@
+@page "/incidente/{Id:int}"
+@using Microsoft.EntityFrameworkCore
+@using RansomGuard.Core.Detection
+@using RansomGuard.Server.Data
+@inject RansomGuardDb Db
+@inject RansomGuard.Server.Policy.AgentPolicyService Policies
+@using RansomGuard.Server.Auth
+
+<PageTitle>RansomGuard — Incidente</PageTitle>
+
+@if (_inc is null)
+{
+    <div class="rg-empty">Incidente não encontrado.</div>
+}
+else
+{
+    <h1 class="rg-h1">Incidente @(_inc.IncidentId ?? $"#{_inc.Id}")</h1>
+    <p class="rg-sub">
+        @_inc.Server?.Name · @_inc.At.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") ·
+        <span class="pill @(_inc.Confidence == Confidence.High ? "p-high" : "p-med")">@_inc.Confidence</span>
+        @if (_inc.Source == "agent")
+        {
+            <span class="pill p-ok" title="O agente detectou, decidiu e executou; esta é a trilha real.">verdade do agente</span>
+        }
+        else
+        {
+            <span class="pill p-att" title="Derivado pelo painel a partir dos eventos (agente antigo): não há trilha de contenção.">derivado pelo painel</span>
+        }
+    </p>
+
+    <div class="rg-cards">
+        <div class="rg-card"><div class="big rg-big-text">@_inc.User</div><div class="lbl">Usuário</div></div>
+        <div class="rg-card"><div class="big rg-big-text"><code>@_inc.SourceIp</code></div><div class="lbl">Origem (IP)</div></div>
+        <div class="rg-card"><div class="big rg-big-text">@_inc.Share</div><div class="lbl">Share</div></div>
+        <div class="rg-card"><div class="big">@_inc.AffectedFiles</div><div class="lbl">Arquivos afetados</div></div>
+    </div>
+
+    <h2 class="rg-h2">Detecção</h2>
+    <table class="rg">
+        <tbody>
+            <tr><th>Razões</th><td class="rg-fix">@_inc.Reasons</td></tr>
+            <tr><th>Modo do agente</th><td>@(_inc.Mode ?? "—")</td></tr>
+            <tr><th>Decisão</th><td>@(_inc.Rationale ?? "—")</td></tr>
+            <tr><th>Contido</th><td>@(_inc.Contained ? "sim — pelo menos uma ação executada" : "não")</td></tr>
+            <tr><th>Alerta</th><td>@(_inc.Alerted ? "enviado" : "—")</td></tr>
+        </tbody>
+    </table>
+
+    <h2 class="rg-h2">Arquivos afetados (@_paths.Count@(_paths.Count >= 500 ? "+" : ""))</h2>
+    @if (_paths.Count == 0)
+    {
+        <div class="rg-empty">Sem lista de caminhos (incidente derivado pelo painel ou sem escritas).</div>
+    }
+    else
+    {
+        <p class="rg-sub">O que restaurar do backup/snapshot. <a class="rg-btn" href="@($"/incidente/{_inc.Id}/arquivos.txt")">Exportar lista (.txt)</a>
+            <a class="rg-btn" href="@($"/incidente/{_inc.Id}/relatorio.json")">Relatório assinado (.json)</a> <a class="rg-btn" href="@($"/incidente/{_inc.Id}/relatorio.minisig")">assinatura (.minisig)</a></p>
+        <pre style="max-height:260px;overflow:auto;font-size:12px;background:var(--surface-2,#f6f6f6);padding:10px;border-radius:8px">@string.Join("\n", _paths.Take(100))@(_paths.Count > 100 ? $"\n… e mais {_paths.Count - 100} (na exportação)" : "")</pre>
+    }
+
+    <h2 class="rg-h2">Linha do tempo da resposta (@_inc.Actions.Count)</h2>
+    @if (_inc.Actions.Count == 0)
+    {
+        <div class="rg-empty">
+            @(_inc.Source == "agent"
+                ? "Nenhuma ação executada — modo Monitor/Alert ou confiança média (só alerta)."
+                : "Sem trilha: este incidente foi derivado pelo painel (agente anterior à F32).")
+        </div>
+    }
+    else
+    {
+        <table class="rg">
+            <thead><tr><th>Quando</th><th>Operação</th><th>Degrau</th><th>Alvo</th><th>Justificativa</th><th>Reversão</th></tr></thead>
+            <tbody>
+                @foreach (var a in _inc.Actions.OrderBy(x => x.At).ThenBy(x => x.Id))
+                {
+                    <tr>
+                        <td>@a.At.ToLocalTime().ToString("HH:mm:ss")</td>
+                        <td><span class="pill @OpPill(a.Operation)">@OpLabel(a.Operation)</span></td>
+                        <td>@a.Step</td>
+                        <td><code>@a.Target</code></td>
+                        <td class="rg-fix">@a.Justification</td>
+                        <td>
+                            @if (a.Operation != "execute")
+                            {
+                                <span>—</span>
+                            }
+                            else if (a.RevertedAt is { } r)
+                            {
+                                <span class="pill p-ok">revertida @r.ToLocalTime().ToString("dd/MM HH:mm")</span>
+                            }
+                            else if (a.RevertRequestedAt is { } q)
+                            {
+                                <span class="pill p-att" title="O agente executa a reversão no próximo ciclo.">solicitada @q.ToLocalTime().ToString("dd/MM HH:mm")</span>
+                            }
+                            else if (_isAdmin)
+                            {
+                                <EditForm Model="this" FormName="@($"revert-{a.Id}")" OnSubmit="@(() => RequestRevertAsync(a.Id))">
+                                    <button class="rg-btn" type="submit">Desfazer</button>
+                                </EditForm>
+                            }
+                            else
+                            {
+                                <span class="rg-sub">só admin</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p class="rg-sub">Desfazer registra o pedido aqui; o agente do servidor executa a reversão (reabilitar conta, desbloquear IP, liberar share) e devolve o resultado nesta mesma linha do tempo.</p>
+    }
+
+    <p style="margin-top:18px"><a class="rg-btn" href="/incidentes">← Incidentes</a></p>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? Auth { get; set; }
+    private bool _isAdmin;   // D10: sem estado de autenticação, ou sem o papel, não é administrador (falha fechada)
+    private string _me = "-";
+    private DetectionRecord? _inc;
+    private List<string> _paths = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth is not null)
+        {
+            var user = (await Auth).User;
+            _isAdmin = user.Identity?.IsAuthenticated == true && user.IsInRole(Roles.Admin);
+            _me = user.Identity?.Name ?? "-";
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _inc = await Db.Detections.Include(d => d.Server).Include(d => d.Actions).FirstOrDefaultAsync(d => d.Id == Id);
+        _paths = _inc?.AffectedPathsJson is { } j ? (System.Text.Json.JsonSerializer.Deserialize<List<string>>(j) ?? new()) : new();
+    }
+
+    private async Task RequestRevertAsync(int actionId)
+    {
+        if (!_isAdmin) return;
+        var action = await Db.ResponseActions.FirstOrDefaultAsync(a => a.Id == actionId && a.DetectionId == Id);
+        if (action is not null && action.Operation == "execute" && action.RevertRequestedAt is null)
+        {
+            action.RevertRequestedAt = DateTime.UtcNow;
+            await Db.SaveChangesAsync();
+            // L14 (laboratório, sessão 2): liberar o IP aqui e deixá-lo na blocklist de rede faria os outros servidores
+            // continuarem bloqueando quem o administrador acabou de liberar.
+            if (action.Step == nameof(RansomGuard.Core.Response.ResponseStep.BlockIp))
+                await Policies.RemoveFromNetworkBlocklistAsync(action.Target, DateTime.UtcNow);
+            await OperatorAudit.RecordAsync(Db, _me, "revert.request", $"incidente {Id}: {action.Step} {action.Target}");
+        }
+        await LoadAsync();
+    }
+
+    private static string OpPill(string op) => op switch
+    {
+        "execute" => "p-ok", "fail" => "p-crit", "revert" => "p-good", _ => "p-att"
+    };
+    private static string OpLabel(string op) => op switch
+    {
+        "execute" => "executada", "fail" => "falhou", "skip" => "pulada", "revert" => "revertida", _ => op
+    };
+}

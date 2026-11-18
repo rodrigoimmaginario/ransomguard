@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">RansomGuard — Windows servers</title>
+  <desc id="desc">Detecção e contenção de ransomware em servidores Windows. Detection and containment for Windows servers. Gratuito e de código aberto (MIT) / Free and open source (MIT).</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#2B1527"/><stop offset="1" stop-color="#5A2450"/></linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="8" fill="#C77CB0"/>
+  <g fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif">
+    <text x="80" y="135" font-size="64" font-weight="700">RansomGuard</text>
+    <text x="80" y="245" font-size="44" font-weight="600">Detecte e contenha ransomware</text>
+    <text x="80" y="303" font-size="44" font-weight="600">em servidores Windows.</text>
+    <text x="80" y="382" font-size="26" fill="#E9CFE3">Detection and containment for Windows servers.</text>
+    <text x="80" y="475" font-size="25" fill="#E9CFE3">Gratuito e de código aberto · Free and open source (MIT)</text>
+    <text x="80" y="552" font-size="22" fill="#D0A2C8">v1.0.0 · ransomguard.com.br</text>
+  </g>
+</svg>

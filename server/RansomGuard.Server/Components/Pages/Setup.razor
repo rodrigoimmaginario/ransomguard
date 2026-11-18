@@ -1,0 +1,44 @@
+@page "/setup"
+@attribute [AllowAnonymous]
+
+<PageTitle>RansomGuard — Configuração inicial</PageTitle>
+
+<div class="auth-wrap">
+    <div class="auth-card">
+        <h1 class="rg-h1">Bem-vindo ao RansomGuard</h1>
+        <p class="rg-sub">Crie a conta de administração do painel. É a única conta — o painel é seu.</p>
+
+        @if (Erro == 2)
+        {
+            <div class="auth-erro">Token de primeira execução incorreto. Copie do arquivo token-de-setup.txt, na pasta de dados do painel.</div>
+        }
+        else if (_erro)
+        {
+            <div class="auth-erro">Não foi possível criar a conta. A senha precisa ter ao menos 8 caracteres,
+                e o painel só aceita uma conta.</div>
+        }
+
+        <form method="post" action="/auth/setup">
+            <AntiforgeryToken />
+            <label class="auth-field">
+                <span>Usuário</span>
+                <input name="username" value="admin" autocomplete="username" />
+            </label>
+            <label class="auth-field">
+                <span>Senha (mínimo 8 caracteres)</span>
+                <input name="password" type="password" autocomplete="new-password" required minlength="8" />
+            </label>
+            <label class="auth-field">
+                <span>Token de primeira execução</span>
+                <input name="token" autocomplete="off" required />
+                <small>Está no arquivo <code>token-de-setup.txt</code>, na pasta de dados do painel — instalado: <code>%ProgramData%\RansomGuard\Painel</code>, que só administradores abrem. Impede que outra pessoa crie a conta de dono antes de você.</small>
+            </label>
+            <button class="rg-btn" type="submit">Criar conta e entrar</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "erro")] public int? Erro { get; set; }
+    private bool _erro => Erro is not null;
+}

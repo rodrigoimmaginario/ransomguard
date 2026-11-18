@@ -1,0 +1,28 @@
+# Normaliza fim de linha: LF no repositório, conversão automática no checkout do Windows.
+# Elimina os avisos "LF will be replaced by CRLF" em cada commit.
+* text=auto
+
+# Scripts e código-fonte: LF no repositório (consistência entre máquinas/CI).
+*.cs      text eol=lf
+*.ps1     text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.html    text eol=lf
+*.css     text eol=lf
+*.js      text eol=lf
+*.wxs     text eol=lf
+*.sln     text eol=crlf
+*.csproj  text eol=lf
+
+# Binários: nunca normalizar.
+*.png     binary
+*.jpg     binary
+*.ico     binary
+*.msi     binary
+*.exe     binary
+*.dll     binary
+*.pdb     binary
+*.zip     binary
+*.minisig binary

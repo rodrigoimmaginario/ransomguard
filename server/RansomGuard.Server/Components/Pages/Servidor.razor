@@ -1,0 +1,95 @@
+@page "/servidor/{Name}"
+@using System.Text.Json
+@using Microsoft.EntityFrameworkCore
+@using RansomGuard.Core.Score
+@using RansomGuard.Server.Data
+@inject RansomGuardDb Db
+
+<PageTitle>RansomGuard — @Name</PageTitle>
+
+@if (_server is null)
+{
+    <div class="rg-empty">Servidor não encontrado.</div>
+}
+else
+{
+    <h1 class="rg-h1">@_server.Name</h1>
+    <p class="rg-sub">Última avaliação @_server.LastSeen.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+
+    <div class="rg-score-hero">
+        <span class="n" style="color:@BandCss(_server.LastBand)">@_server.LastScore</span><span class="d">/100</span>
+        <span class="rg-band @BandPill(_server.LastBand)" style="align-self:center">@ScoreReport.BandLabel(_server.LastBand)</span>
+    </div>
+
+    <p style="margin:10px 0 18px"><a class="rg-btn" href="@($"/politica/{_server.Name}")">Política de resposta deste servidor</a> <a class="rg-btn" href="/politica">Política padrão</a></p>
+
+    <h2 class="rg-h2">Correções priorizadas (@_findings.Count)</h2>
+    @if (_findings.Count == 0)
+    {
+        <div class="rg-empty">Sem achados — postura em conformidade com o catálogo. 🎉</div>
+    }
+    else
+    {
+        <table class="rg">
+            <thead><tr><th>Achado</th><th>Correção</th></tr></thead>
+            <tbody>
+                @foreach (var f in _findings)
+                {
+                    <tr><td><b>@f.Title</b></td><td class="rg-fix">@f.Fix</td></tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @* O que o agente NÃO conseguiu verificar. Omitir isso faria a nota parecer completa sem ser —
+       o admin merece saber sobre o que ela se cala. *@
+    @if (_unknown.Count > 0)
+    {
+        <h2 class="rg-h2">Não verificado (@_unknown.Count)</h2>
+        <p class="rg-sub">
+            A nota acima foi calculada <b>somente sobre o que o agente conseguiu medir</b>. Estes
+            itens não entraram na conta — nem a favor, nem contra. Confira à mão ou ajuste as
+            permissões do agente.
+        </p>
+        <table class="rg">
+            <thead><tr><th>Checagem</th><th>Por que importa</th></tr></thead>
+            <tbody>
+                @foreach (var u in _unknown)
+                {
+                    <tr><td><b>@u.Title</b></td><td class="rg-fix">@u.AttackPremise</td></tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    private ServerEntity? _server;
+    private List<FindingView> _findings = new();
+    private List<UnknownView> _unknown = new();
+
+    private sealed record FindingView(string Id, string Title, string Fix);
+    private sealed record UnknownView(string Id, string Title, string AttackPremise);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _server = await Db.Servers.Include(s => s.PostureRecords)
+            .FirstOrDefaultAsync(s => s.Name == Name);
+        var last = _server?.PostureRecords.OrderByDescending(p => p.At).FirstOrDefault();
+        if (last is null) return;
+
+        _findings = JsonSerializer.Deserialize<List<FindingView>>(last.FindingsJson) ?? new();
+        // Retratos gravados antes desta coluna existir trazem "[]" — nada quebra.
+        _unknown = JsonSerializer.Deserialize<List<UnknownView>>(last.UnknownJson) ?? new();
+    }
+
+    private static string BandCss(RiskBand b) => b switch
+    {
+        RiskBand.Critical => "var(--crit)", RiskBand.Attention => "var(--att)", _ => "var(--good)"
+    };
+    private static string BandPill(RiskBand b) => b switch
+    {
+        RiskBand.Critical => "b-crit", RiskBand.Attention => "b-att", _ => "b-good"
+    };
+}

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "patterns": [
+    "*.locked",
+    "*.crypted",
+    "*.crypt",
+    "*.encrypted",
+    "*.enc",
+    "*.locky",
+    "*.zepto",
+    "*.cerber",
+    "*.crypto",
+    "*.wcry",
+    "*.wncry",
+    "*.wannacry",
+    "*.crab",
+    "*.gdcb",
+    "*.krab",
+    "*.ryk",
+    "*.conti",
+    "*.lockbit",
+    "*.blackcat",
+    "*.akira",
+    "*.play",
+    "*.qilin",
+    "HOW_TO_DECRYPT*",
+    "HOW_TO_BACK_FILES*",
+    "*_readme.txt",
+    "*RECOVER*FILES*",
+    "*DECRYPT*INSTRUCTION*",
+    "*RESTORE*FILES*"
+  ]
+}

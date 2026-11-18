@@ -1,0 +1,78 @@
+# Build
+bin/
+obj/
+artifacts/
+*.binlog
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Testes / cobertura
+TestResults/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.trx
+
+# Pacotes
+*.nupkg
+packages/
+node_modules/
+
+# CHAVES PRIVADAS — nunca versionar (ficam no cofre, fora do repo)
+*.key
+minisign.key
+*.pem
+*.pfx
+.env*
+
+# Diversos
+*.log
+.DS_Store
+Thumbs.db
+
+# Spikes: artefatos de execução (código-fonte é versionado, saída não)
+spike/*.log
+spike/*.log.err
+spike/**/publish/
+
+# Agente / servidor: publish e banco local
+agent/**/publish/
+server/**/publish*/
+server/**/ransomguard*.db
+
+# Ferramentas standalone (provocador de ensaio F19): saída de publish é pesada
+tools/**/publish/
+
+# WiX / MSI build artifacts
+deploy/msi/*.msi
+deploy/msi/*.wixpdb
+deploy/msi/*.wixobj
+
+# Saída do build de release (binários vão para o GitHub Release, nunca versionados)
+dist/
+
+# Config local do Claude Code
+.claude/
+.vercel
+
+# Banco local do backend (não versionar)
+*.db
+*.db-shm
+*.db-wal
+
+# Arquivos temporários de mensagem de commit
+scratch-*.txt
+
+# F38: chave Ed25519 da instalação do painel (gerada no 1º boot; nunca versionar)
+install-key.json
+
+# relatórios de cobertura locais
+out/
+catalog-cache/
+
+# Scripts de edicao de uma sessao: nunca fazem parte do repositorio.
+.artifacts/

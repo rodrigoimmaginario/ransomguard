@@ -1,0 +1,23 @@
+# O deploy publica APENAS o site estático (pasta site/, via outputDirectory no vercel.json).
+# Tudo abaixo é código-fonte, build ou binário — não deve ser enviado ao Vercel.
+# (O .gitignore não vale aqui: o CLI do Vercel usa este arquivo.)
+
+# Artefatos de release (MSIs/zip vão para o GitHub Release, não para o site)
+dist/
+
+# Código-fonte e build do produto
+core/
+server/
+agent/
+spike/
+tools/
+deploy/
+list/
+internal/
+bin/
+obj/
+*.sln
+
+# Governança e documentação interna
+.ariad/
+*.md

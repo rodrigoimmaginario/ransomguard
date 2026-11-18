@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "patterns": [
+    "*.locked", "*.lock", "*.locky", "*.crypted", "*.crypt", "*.cryptd", "*.crypto", "*.cryp1", "*.encrypted", "*.encrypt", "*.enc", "*.encr",
+    "*.zepto", "*.odin", "*.thor", "*.aesir", "*.zzzzz", "*.osiris", "*.cerber", "*.cerber2", "*.cerber3",
+    "*.wcry", "*.wncry", "*.wncryt", "*.wannacry", "*.wnry",
+    "*.crab", "*.gdcb", "*.krab", "*.ryk", "*.ryuk", "*.conti", "*.lockbit", "*.abcd", "*.blackcat", "*.akira", "*.powerranges",
+    "*.play", "*.qilin", "*.basta", "*.rhysida", "*.medusa", "*.mlock", "*.phobos", "*.8base", "*.hive", "*.royal", "*.royal_u", "*.royal_w",
+    "*.blackbasta", "*.bianlian", "*.cuba", "*.clop", "*.cl0p", "*.c0p", "*.vice", "*.v-society", "*.ragnar", "*.ragnarok", "*.ragnar_locker",
+    "*.mallox", "*.maktub", "*.magniber", "*.nozelesn", "*.dharma", "*.wallet", "*.arena", "*.cezar", "*.cesar", "*.java", "*.bip", "*.combo", "*.adobe",
+    "*.btc", "*.xtbl", "*.ykcol", "*.lukitus", "*.diablo6", "*.asasin",
+    "*.sage", "*.jaff", "*.wlu", "*.sexy", "*.nemty", "*.nefilim", "*.nephilim", "*.sodinokibi", "*.revil", "*.rvl",
+    "*.maze", "*.egregor", "*.sekhmet", "*.avdn", "*.avaddon", "*.darkside", "*.blackmatter", "*.alphv", "*.sphynx",
+    "*.makop", "*.mkp", "*.deadbolt", "*.quantum", "*.zeppelin", "*.vega", "*.buran", "*.jigsaw", "*.fun", "*.kkk", "*.gws", "*.btcware",
+    "*.globe", "*.globeimposter", "*.purge", "*.rumba", "*.pay2key", "*.doppelpaymer", "*.dpm", "*.bitpaymer", "*.pr0tector",
+    "*.lol!", "*.omg!", "*.rdm", "*.rrk", "*.exx", "*.ezz", "*.ecc", "*.vault", "*.ha3", "*.toxcrypt", "*.magic", "*.supercrypt", "*.ctbl", "*.ctb2",
+    "*.r5a", "*.r16m01d05", "*.pzdc", "*.good", "*.LeChiffre", "*.coded", "*.kraken", "*.cryptolocker", "*.cryptowall", "*.teslacrypt", "*.micro", "*.mp3", "*.xxx", "*.ttt", "*.vvv", "*.ccc", "*.abc", "*.aaa", "*.zzz"
+  ],
+  "notePatterns": [
+    "*decrypt*", "*restore*file*", "*recover*file*", "*recover-files*", "*how_to*", "*how-to*", "*howto*",
+    "*readme*restore*", "*read_me*", "*read-me*", "!!!*", "*ransom*", "*unlock*files*", "*your_files*", "*files_encrypted*",
+    "*_readme.txt", "*#*recover*", "*instructions*.hta", "*_HOW_TO_RECOVER*", "readme_to_recover*", "*DECRYPT*INSTRUCTION*",
+    "*RESTORE*FILES*", "*RECOVER*FILES*", "HOW_TO_BACK_FILES*", "*_leia_me*", "*leia-me*", "*como_recuperar*", "*recuperar_arquivos*",
+    "*CONTACT_US*", "*HELP_DECRYPT*", "*DECRYPT_INFO*", "*RETURN_FILES*", "*FILES_BACK*", "*WANT_YOUR_FILES*", "*ATTENTION*.txt", "*#DECRYPT*"
+  ],
+  "tuning": {
+    "massThreshold": 40,
+    "rollingWindowThreshold": 120,
+    "slowThreshold": 300,
+    "readThreshold": 2000,
+    "knownExtensionThreshold": 5,
+    "minNoteDirectories": 3
+  }
+}

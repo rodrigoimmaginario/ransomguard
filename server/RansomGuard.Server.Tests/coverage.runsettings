@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- F36: cobertura do servidor pelo coletor em processo (confiável com o host ASP.NET dentro do teste).
+     Portão aplicado por tools/coverage-gate.mjs (linha 70 / branch 50, com os componentes Razor). -->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Include>[RansomGuard.Server]*</Include>
+          <!-- C2: as migrações são código gerado; contá-las inflaria a cobertura sem dizer nada sobre os testes. -->
+          <Exclude>[RansomGuard.Server]Program,[RansomGuard.Server]RansomGuard.Server.Seed.*,[RansomGuard.Server]RansomGuard.Server.Data.Migrations.*</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

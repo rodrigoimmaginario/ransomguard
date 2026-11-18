@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="RansomGuard — cebola roxa cortada">
+  <circle cx="33" cy="36" r="24" fill="#C77CB0" stroke="#8E3B63" stroke-width="2"/>
+  <path d="M30 12 Q-15 40 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+  <path d="M30 12 Q-4 40 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+  <path d="M30 12 Q6 39 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+  <path d="M30 12 Q16 38 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+  <path d="M30 12 Q75 28 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+  <path d="M30 12 Q66 30 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+  <path d="M30 12 Q57 32 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+  <path d="M30 12 Q48 34 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+  <path d="M30 12 Q24 38 41 59 Q47 34 30 12 Z" fill="#FFF7FB"/>
+  <path d="M30 12 Q33 37 41 59" fill="none" stroke="#E7C3DC" stroke-width="1.5"/>
+  <path d="M30 12 C28 7 25 5 21 3" fill="none" stroke="#8E3B63" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M38 59 l-2 4 M41 60 l0 4 M44 59 l2 4" stroke="#C9A96F" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

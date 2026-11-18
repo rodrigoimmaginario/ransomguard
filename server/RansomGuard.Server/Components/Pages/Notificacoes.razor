@@ -1,0 +1,207 @@
+@page "/notificacoes"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "admin")]
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using RansomGuard.Core.Notifications
+@using RansomGuard.Server.Data
+@using RansomGuard.Server.Notifications
+@inject RansomGuardDb Db
+@inject INotificationSink Sink
+
+<PageTitle>RansomGuard — Notificações</PageTitle>
+
+<h1 class="rg-h1">Notificações</h1>
+<p class="rg-sub">
+    Receba o alerta no bolso quando um ataque for detectado. Todos os canais são <b>gratuitos</b>.
+    O recomendado é o <b>ntfy self-hosted</b> — assim o alerta também não sai da sua rede.
+</p>
+
+@if (_loading)
+{
+    <div class="rg-empty">Carregando…</div>
+}
+else
+{
+    <h2 class="rg-h2">Quando notificar</h2>
+    <div class="rg-card">
+        <label class="nf-row">
+            <span>Severidade mínima</span>
+            <select @bind="_settings.MinimumSeverity">
+                <option value="@AlertSeverity.Critical">Só crítico (recomendado)</option>
+                <option value="@AlertSeverity.Warning">Aviso e crítico</option>
+                <option value="@AlertSeverity.Info">Tudo (ruidoso)</option>
+            </select>
+        </label>
+        <label class="nf-row">
+            <span>Janela anti-flood (minutos)</span>
+            <input type="number" min="0" max="120" @bind="_settings.FloodWindowMinutes" />
+        </label>
+        <label class="nf-row">
+            <span>Avisar quando um agente ficar silencioso (possível tamper)</span>
+            <input type="checkbox" @bind="_settings.NotifyAgentSilent" />
+        </label>
+    </div>
+
+    @foreach (var vm in _channels)
+    {
+        <h2 class="rg-h2">@Title(vm.Kind) @if (vm.Config.Enabled) { <span class="pill p-ok">ativo</span> }</h2>
+        <div class="rg-card">
+            <label class="nf-row">
+                <span><b>Habilitar</b></span>
+                <input type="checkbox" @bind="vm.Config.Enabled" />
+            </label>
+
+            @switch (vm.Kind)
+            {
+                case ChannelKind.Ntfy:
+                    <Field label="Servidor ntfy" hint="ex.: https://ntfy.suaempresa.local (self-hosted) ou https://ntfy.sh">
+                        <input @bind="vm.Config.NtfyServer" @bind:event="oninput" placeholder="https://ntfy.corp.local" /></Field>
+                    <Field label="Tópico" hint="um nome secreto; no ntfy.sh público o tópico funciona como senha">
+                        <input @bind="vm.Config.NtfyTopic" @bind:event="oninput" placeholder="ransomguard-alertas" /></Field>
+                    <SecretField label="Token (opcional)" set="@vm.HasNtfyToken" @bind-Value="vm.NtfyToken" />
+                    <div class="nf-guide">
+                        <b>Como usar:</b> instale o app ntfy no celular, escolha um tópico difícil de adivinhar e
+                        assine-o. O self-hosted mantém o alerta dentro da sua rede.
+                    </div>
+                    break;
+
+                case ChannelKind.Webhook:
+                    <Field label="URL do webhook" hint="Microsoft Teams (Power Automate) ou Slack">
+                        <input @bind="vm.Config.WebhookUrl" @bind:event="oninput" placeholder="https://…" /></Field>
+                    <div class="nf-guide">
+                        <b>Teams:</b> crie um fluxo no Power Automate com o gatilho "When a Teams webhook request is
+                        received" e cole a URL aqui. <b>Slack:</b> crie um Incoming Webhook no app do workspace.
+                        O formato é detectado pela URL.
+                    </div>
+                    break;
+
+                case ChannelKind.Telegram:
+                    <SecretField label="Token do bot" set="@vm.HasTelegramToken" @bind-Value="vm.TelegramToken" />
+                    <Field label="Chat ID" hint="o ID do seu chat com o bot">
+                        <input @bind="vm.Config.TelegramChatId" @bind:event="oninput" placeholder="-1001234567890" /></Field>
+                    <div class="nf-guide">
+                        <b>Como usar:</b> fale com o <b>@("@BotFather")</b> no Telegram, crie um bot e copie o token.
+                        Envie uma mensagem ao bot e use o Chat ID.
+                        <b>Atenção:</b> muitas redes corporativas bloqueiam o Telegram.
+                    </div>
+                    break;
+
+                case ChannelKind.Email:
+                    <Field label="Servidor SMTP"><input @bind="vm.Config.SmtpHost" @bind:event="oninput" placeholder="smtp.corp.local" /></Field>
+                    <Field label="Porta"><input type="number" @bind="vm.Config.SmtpPort" /></Field>
+                    <Field label="Remetente"><input @bind="vm.Config.SmtpFrom" @bind:event="oninput" placeholder="ransomguard@corp.local" /></Field>
+                    <Field label="Destinatários" hint="separados por vírgula">
+                        <input @bind="vm.Config.SmtpTo" @bind:event="oninput" placeholder="adm@corp.local, seguranca@corp.local" /></Field>
+                    <Field label="Usuário (se o SMTP exigir)"><input @bind="vm.Config.SmtpUser" @bind:event="oninput" /></Field>
+                    <SecretField label="Senha" set="@vm.HasSmtpPassword" @bind-Value="vm.SmtpPassword" />
+                    <label class="nf-row"><span>Usar SSL/TLS</span><input type="checkbox" @bind="vm.Config.SmtpSsl" /></label>
+                    <div class="nf-guide"><b>Como usar:</b> toda empresa já tem servidor de e-mail. É o mais lento
+                        dos canais — bom como complemento.</div>
+                    break;
+            }
+
+            <div class="nf-actions">
+                <button class="rg-btn" @onclick="() => Test(vm.Kind)">Enviar teste</button>
+                @if (vm.TestResult is not null)
+                {
+                    <span class="nf-result @(vm.TestOk ? "ok" : "err")">@vm.TestResult</span>
+                }
+                else if (vm.Config.LastAttemptAt is not null)
+                {
+                    <span class="nf-result @(vm.Config.LastAttemptOk == true ? "ok" : "err")">
+                        último: @vm.Config.LastAttemptDetail
+                    </span>
+                }
+            </div>
+        </div>
+    }
+
+    <div style="margin-top:20px;display:flex;gap:12px;align-items:center">
+        <button class="rg-btn" @onclick="Save">Salvar configuração</button>
+        @if (_saved) { <span class="nf-result ok">Salvo.</span> }
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saved;
+    private NotificationSettings _settings = new();
+    private readonly List<ChannelVm> _channels = new();
+
+    /// <summary>
+    /// Estado de edição de um canal. O segredo salvo NUNCA volta para a tela: guardamos só um flag de
+    /// "tem segredo" e um campo de digitação vazio; no save, campo vazio mantém o segredo atual.
+    /// </summary>
+    private sealed class ChannelVm
+    {
+        public required ChannelKind Kind { get; init; }
+        public required NotificationChannelConfig Config { get; init; }
+        public bool HasNtfyToken { get; init; }
+        public bool HasTelegramToken { get; init; }
+        public bool HasSmtpPassword { get; init; }
+        public string? NtfyToken { get; set; }
+        public string? TelegramToken { get; set; }
+        public string? SmtpPassword { get; set; }
+        public string? TestResult { get; set; }
+        public bool TestOk { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _settings = await Db.NotificationSettings.FirstOrDefaultAsync() ?? new NotificationSettings { Id = 1 };
+
+        var salvos = await Db.NotificationChannels.ToListAsync();
+        foreach (var kind in new[] { ChannelKind.Ntfy, ChannelKind.Webhook, ChannelKind.Telegram, ChannelKind.Email })
+        {
+            var cfg = salvos.FirstOrDefault(c => c.Kind == kind) ?? new NotificationChannelConfig { Kind = kind };
+            _channels.Add(new ChannelVm
+            {
+                Kind = kind,
+                Config = cfg,
+                HasNtfyToken = !string.IsNullOrEmpty(cfg.NtfyToken),
+                HasTelegramToken = !string.IsNullOrEmpty(cfg.TelegramBotToken),
+                HasSmtpPassword = !string.IsNullOrEmpty(cfg.SmtpPassword)
+            });
+        }
+        _loading = false;
+    }
+
+    private async Task Save()
+    {
+        _saved = false;
+        foreach (var vm in _channels)
+        {
+            // Segredo: só sobrescreve se o admin digitou algo novo. Campo vazio = mantém o que estava.
+            if (!string.IsNullOrEmpty(vm.NtfyToken)) vm.Config.NtfyToken = vm.NtfyToken;
+            if (!string.IsNullOrEmpty(vm.TelegramToken)) vm.Config.TelegramBotToken = vm.TelegramToken;
+            if (!string.IsNullOrEmpty(vm.SmtpPassword)) vm.Config.SmtpPassword = vm.SmtpPassword;
+
+            if (vm.Config.Id == 0) Db.NotificationChannels.Add(vm.Config);
+        }
+
+        if (_settings.Id == 0) _settings.Id = 1;
+        if (!await Db.NotificationSettings.AnyAsync()) Db.NotificationSettings.Add(_settings);
+
+        await Db.SaveChangesAsync();
+        _saved = true;
+    }
+
+    private async Task Test(ChannelKind kind)
+    {
+        var vm = _channels.First(c => c.Kind == kind);
+        // Salva antes de testar — senão o teste usaria a configuração antiga do banco.
+        await Save();
+        var result = await Sink.TestAsync(kind);
+        vm.TestResult = result.Detail;
+        vm.TestOk = result.Ok;
+    }
+
+    private static string Title(ChannelKind k) => k switch
+    {
+        ChannelKind.Ntfy => "ntfy (push no celular) — recomendado",
+        ChannelKind.Webhook => "Microsoft Teams / Slack",
+        ChannelKind.Telegram => "Telegram",
+        ChannelKind.Email => "E-mail",
+        _ => k.ToString()
+    };
+}

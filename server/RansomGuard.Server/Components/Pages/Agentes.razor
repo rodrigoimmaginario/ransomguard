@@ -1,0 +1,126 @@
+@page "/agentes"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "admin")]
+@using RansomGuard.Server.Agents
+@using RansomGuard.Server.Auth
+@using RansomGuard.Server.Data
+@inject AgentEnrollmentService Agents
+@inject RansomGuardDb Db
+@inject RansomGuard.Server.Security.InstallSecrets Secrets
+@inject IHttpContextAccessor Http
+
+<PageTitle>RansomGuard — Agentes</PageTitle>
+
+<h1 class="rg-h1">Agentes</h1>
+<p class="rg-sub">
+    Cada agente gera a própria chave no servidor que monitora e assina com ela tudo o que envia. O painel só aceita
+    dados de um servidor vindos da chave enrolada para aquele nome — a configuração de um servidor não serve para
+    falar em nome de outro.
+</p>
+
+@if (_newToken is not null)
+{
+    <h2 class="rg-h2">Comando de instalação</h2>
+    <div class="rg-card" style="margin-bottom:18px">
+        <p class="rg-sub">No servidor de arquivos, em PowerShell elevado. Ajuste <code>SERVERNAME</code> e <code>PROTECTEDPATHS</code>.</p>
+        <pre style="white-space:pre-wrap;word-break:break-all;font-size:12px">msiexec /i RansomGuard-Agente.msi BACKENDURL=@_panelUrl SERVERNAME=FS01 PROTECTEDPATHS="D:\Shares" ENROLLTOKEN=@_newToken PANELCERT=@Secrets.CertificateThumbprint</pre>
+        <p class="rg-sub">
+            Este token vale até @_newTokenExpires.ToLocalTime().ToString("dd/MM HH:mm") para @_newTokenUses servidor(es) e
+            <b>não aparece de novo</b>. Depois de usado, não serve para mais nada; o agente o apaga do registro ao se enrolar.
+        </p>
+    </div>
+}
+@if (_message is not null) { <div class="rg-empty">@_message</div> }
+
+<h2 class="rg-h2">Enrolados (@_agents.Count)</h2>
+@if (_agents.Count == 0)
+{
+    <div class="rg-empty">Nenhum agente enrolado. Gere um token abaixo e instale o agente no primeiro servidor.</div>
+}
+else
+{
+    <table class="rg">
+        <thead><tr><th>Servidor</th><th>Impressão digital da chave</th><th>Enrolado em</th><th>Fala de</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var a in _agents)
+            {
+                <tr>
+                    <td><a href="@($"/servidor/{a.Server}")">@a.Server</a></td>
+                    <td><code>@a.Fingerprint</code></td>
+                    <td>@a.EnrolledAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>@(string.IsNullOrEmpty(a.LastAddress) ? "—" : a.LastAddress)</td>
+                    <td>
+                        <EditForm Model="this" FormName="@($"revogar-{a.ServerKey}")" OnSubmit="@(() => RevokeAsync(a.Server))">
+                            <button class="rg-btn" type="submit">Revogar</button>
+                        </EditForm>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p class="rg-sub">Revogar faz o painel recusar os lotes daquele servidor até ele ser enrolado de novo com um token novo. Use ao reinstalar o servidor ou se a máquina foi comprometida.</p>
+}
+
+<h2 class="rg-h2">Novo token de enrolamento</h2>
+<EditForm Model="Form" FormName="novo-token" OnValidSubmit="CreateAsync">
+    <table class="rg"><tbody>
+        <tr><th>Servidores que podem usar</th><td><InputNumber @bind-Value="Form.MaxUses" min="1" max="@AgentEnrollmentService.MaxTokenUses" /> <small>1 para instalar à mão; mais para implantação por GPO.</small></td></tr>
+        <tr><th>Validade (horas)</th><td><InputNumber @bind-Value="Form.Hours" min="1" max="168" /></td></tr>
+    </tbody></table>
+    <p style="margin-top:12px"><button class="rg-btn" type="submit">Gerar token e comando</button></p>
+</EditForm>
+
+@code {
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? Auth { get; set; }
+    [SupplyParameterFromForm(FormName = "novo-token")] private TokenForm Form { get; set; } = new();
+    private List<AgentRecord> _agents = new();
+    private string? _newToken, _message;
+    private DateTime _newTokenExpires;
+    private int _newTokenUses;
+    private string _panelUrl = "https://<painel>:5001";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // L9 (laboratório, sessão 2): quando outro formulário desta tela é enviado, o deste chega nulo — e a tela dava 500.
+        Form ??= new();
+        var req = Http.HttpContext?.Request;
+        if (req is not null) _panelUrl = $"{req.Scheme}://{req.Host}";
+        _agents = await Agents.ListAsync();
+    }
+
+    /// <summary>Só administrador autenticado age (a rota já exige o papel; aqui a tela falha fechada por conta própria).</summary>
+    private async Task<string?> AdminAsync()
+    {
+        if (Auth is null) return null;
+        var user = (await Auth).User;
+        return user.Identity?.IsAuthenticated == true && user.IsInRole(Roles.Admin) ? user.Identity.Name ?? "admin" : null;
+    }
+
+    private async Task CreateAsync()
+    {
+        if (await AdminAsync() is not { } me) return;
+        var now = DateTime.UtcNow;
+        var hours = Math.Clamp(Form.Hours, 1, (int)AgentEnrollmentService.MaxTokenLifetime.TotalHours);
+        _newTokenUses = Math.Clamp(Form.MaxUses, 1, AgentEnrollmentService.MaxTokenUses);
+        _newToken = await Agents.CreateTokenAsync(_newTokenUses, TimeSpan.FromHours(hours), me, now);
+        _newTokenExpires = now.AddHours(hours);
+        await OperatorAudit.RecordAsync(Db, me, "agent.token", $"{_newTokenUses} uso(s), {hours} h");
+        Form = new();
+    }
+
+    private async Task RevokeAsync(string server)
+    {
+        if (await AdminAsync() is not { } me) return;
+        if (await Agents.RevokeAsync(server))
+        {
+            await OperatorAudit.RecordAsync(Db, me, "agent.revoke", server);
+            _message = $"Agente {server} revogado: os lotes dele serão recusados até um novo enrolamento.";
+        }
+        _agents = await Agents.ListAsync();
+    }
+
+    public sealed class TokenForm
+    {
+        public int MaxUses { get; set; } = 1;
+        public int Hours { get; set; } = 24;
+    }
+}

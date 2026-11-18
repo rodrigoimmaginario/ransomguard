@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Instalador do AGENTE do RansomGuard (serviço Windows nos servidores monitorados).
+
+  Registra o agente como SERVIÇO DO WINDOWS (início automático) e grava o appsettings.json a partir
+  de propriedades do MSI — o que permite instalação SILENCIOSA por GPO:
+
+    msiexec /i RansomGuard-Agente.msi BACKENDURL=http://painel:5000 SERVERNAME=FS01 ^
+            PROTECTEDPATHS="D:\Shares\Financeiro;E:\Dados" /quiet
+
+  Propriedades:
+    BACKENDURL     (obrigatória na prática) URL do painel. Default: http://localhost:5000
+    SERVERNAME     Nome do servidor no painel. Default: [ComputerName] (nome da máquina)
+    MODE           Monitor | Alert | Block. Default: Monitor (fail-safe — nunca nasce bloqueando)
+    PROTECTEDPATHS Pastas a proteger, separadas por ponto-e-vírgula. Sem elas o produto observa,
+                   mas não planta canário nem aplica file screen — e o painel diz isso.
+    FSRMBLOCKING   true = file screen BLOQUEIA a gravação. Default: false (audita).
+
+  ⚠️ NÃO ASSINADO nesta fase de testes (decisão do owner).
+  ⚠️ MODE default = Monitor por segurança: contenção só por decisão explícita do administrador.
+  ⚠️ FSRMBLOCKING default = false: bloquear extensão em share de produção sem o admin pedir
+     transformaria o produto no incidente. Auditar já entrega o sinal; bloquear é opt-in.
+  ⚠️ Caminhos perigosos (raiz de volume, Windows, Program Files) são RECUSADOS pelo agente, com
+     motivo visível no diagnóstico — um erro de digitação na GPO não vira incidente no parque.
+
+  Build: wix build agente.wxs -d BinDir=<pasta publicada> -d Version=x.y.z -ext WixToolset.Util.wixext -o saida.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="RansomGuard — Agente"
+           Manufacturer="Rodrigo Immaginario"
+           Version="$(var.Version)"
+           UpgradeCode="A17C4D93-2B85-4F60-8E71-3C9A5D2B7F48"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <MajorUpgrade DowngradeErrorMessage="Uma versão mais recente do RansomGuard Agente já está instalada." />
+
+    <Property Id="ARPURLINFOABOUT" Value="https://www.ransomguard.com.br" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/rodrigoimmaginario/ransomguard/tree/main/docs" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!--
+      Propriedades configuráveis na linha de comando (GPO/instalação silenciosa).
+      SERVERNAME vazio por padrão: quando não informado, o agente usa Environment.MachineName em
+      runtime (evita referência a outra propriedade dentro de Property, que o WiX não resolve).
+    -->
+    <Property Id="BACKENDURL" Value="https://localhost:5001" Secure="yes" />
+    <!-- B1: token de enrolamento, gerado na tela Agentes do painel (prazo e número de usos limitados). O agente o usa
+         uma vez para apresentar a própria chave ao painel e o apaga do registro. Não é um segredo permanente. -->
+    <Property Id="ENROLLTOKEN" Secure="yes" Hidden="yes" />
+    <!-- F38/F39 (opcionais): chave pública do painel (minisign.pub) e SHA-256 do certificado TLS, para pin estrito -->
+    <Property Id="PANELKEY" Secure="yes" />
+    <Property Id="PANELCERT" Secure="yes" />
+    <!-- G8/D3: conta do serviço. Padrão LocalSystem. Para gMSA: SERVICEACCOUNT="CORPgmsa-rguard$" (sem senha; o host precisa
+         estar autorizado a recuperar a senha da gMSA). DisableAdAccount exige delegação "Disable account" na OU dos usuários. -->
+    <Property Id="SERVICEACCOUNT" Value="LocalSystem" Secure="yes" />
+    <!-- G1: shares-isca (UNC; ponto-e-vírgula) — qualquer acesso é incidente de alta confiança. -->
+    <Property Id="DECOYSHARES" Secure="yes" />
+    <!-- B4: nomes de canário escolhidos pelo administrador (ponto e vírgula, mínimo três). Vazio = o agente gera nomes
+         próprios desta instalação. Nomes que só o administrador conhece são a forma mais forte. -->
+    <Property Id="CANARYNAMES" Secure="yes" />
+    <Property Id="SERVERNAME" Secure="yes" />
+    <Property Id="MODE" Value="Monitor" Secure="yes" />
+    <!-- Vazio por padrão: o produto nunca escolhe sozinho onde plantar canário. -->
+    <Property Id="PROTECTEDPATHS" Secure="yes" />
+    <Property Id="FSRMBLOCKING" Value="false" Secure="yes" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="RansomGuard">
+        <Directory Id="AGENTEFOLDER" Name="Agente" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="AgenteFiles" Directory="AGENTEFOLDER">
+
+      <!-- Executável + registro do SERVIÇO DO WINDOWS -->
+      <Component Id="AgentExe" Guid="E74A2B05-8C16-4D27-9F38-4A5B6C7D8E90">
+        <File Id="RansomGuardAgentExe"
+              Source="$(var.BinDir)\RansomGuard.Agent.Service.exe"
+              KeyPath="yes" />
+
+        <ServiceInstall Id="AgentServiceInstall"
+                        Name="RansomGuardAgent"
+                        DisplayName="RansomGuard Agent"
+                        Description="Monitora o servidor contra ransomware (metadado, nunca conteúdo) e reporta ao painel do RansomGuard."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="[SERVICEACCOUNT]"
+                        Vital="yes">
+          <!-- Se o serviço falhar, reinicia sempre (G2: parar o agente é passo do playbook; o painel também alerta por batimento perdido) -->
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="restart"
+                              RestartServiceDelayInSeconds="60" />
+        </ServiceInstall>
+
+        <!-- Inicia na instalação; para e remove na desinstalação (sem serviço órfão) -->
+        <ServiceControl Id="AgentServiceControl"
+                        Name="RansomGuardAgent"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+
+      <!--
+        Configuração via REGISTRO do Windows (não via arquivo): as propriedades do MSI viram valores
+        em HKLM, que o agente lê no boot. Isso é o que torna a instalação por GPO viável — o
+        administrador passa BACKENDURL/SERVERNAME na linha de comando e não precisa editar arquivo
+        em cada servidor. O appsettings.json continua no pacote como fallback/documentação.
+      -->
+      <Component Id="AgentConfig" Guid="F85B3C16-9D27-4E38-A049-5B6C7D8E9F01">
+        <File Id="AgentAppSettings" Source="$(var.BinDir)\appsettings.json" />
+        <RegistryKey Root="HKLM" Key="SOFTWARE\RansomGuard\Agent">
+          <RegistryValue Name="BackendUrl" Type="string" Value="[BACKENDURL]" KeyPath="yes" />
+          <RegistryValue Name="ServerName" Type="string" Value="[SERVERNAME]" />
+          <RegistryValue Name="Mode" Type="string" Value="[MODE]" />
+          <RegistryValue Name="ProtectedPaths" Type="string" Value="[PROTECTEDPATHS]" />
+          <RegistryValue Name="FsrmBlocking" Type="string" Value="[FSRMBLOCKING]" />
+          <RegistryValue Name="EnrollToken" Type="string" Value="[ENROLLTOKEN]" />
+          <RegistryValue Name="PanelPublicKey" Type="string" Value="[PANELKEY]" />
+          <RegistryValue Name="PanelCertThumbprint" Type="string" Value="[PANELCERT]" />
+          <RegistryValue Name="DecoyShares" Type="string" Value="[DECOYSHARES]" />
+          <RegistryValue Name="CanaryNames" Type="string" Value="[CANARYNAMES]" />
+        </RegistryKey>
+      </Component>
+
+    </ComponentGroup>
+
+    <!--
+      Desinstalar DESFAZ o que o produto escreveu no servidor: canários e file screens. Com nomes de canário que não
+      se identificam (B4), só o próprio agente sabe quais arquivos são dele — deixar para o administrador limpar à mão
+      não é opção. Roda antes de a configuração sair do registro; numa atualização de versão não roda.
+      Falha aqui não impede a desinstalação.
+    -->
+    <CustomAction Id="RevertProtection" FileRef="RansomGuardAgentExe" ExeCommand="--reverter"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="RevertProtection" After="DeleteServices" Condition='REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE' />
+    </InstallExecuteSequence>
+
+    <Feature Id="Main" Title="RansomGuard Agente" Level="1">
+      <ComponentGroupRef Id="AgenteFiles" />
+    </Feature>
+
+  </Package>
+</Wix>

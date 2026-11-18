@@ -1,0 +1,85 @@
+@page "/"
+@using Microsoft.EntityFrameworkCore
+@using RansomGuard.Core.Score
+@using RansomGuard.Server.Data
+@inject RansomGuardDb Db
+
+<PageTitle>RansomGuard — Visão geral</PageTitle>
+
+<h1 class="rg-h1">Visão geral</h1>
+<p class="rg-sub">Prontidão da rede contra ransomware · @_servers.Count servidor(es)</p>
+
+<div class="rg-cards">
+    <div class="rg-card">
+        <div class="rg-score-hero">
+            <span class="n" style="color:@BandCss(_networkBand)">@_networkScore</span><span class="d">/100</span>
+        </div>
+        <div class="lbl">Score consolidado <span class="rg-band @BandPill(_networkBand)">@ScoreReport.BandLabel(_networkBand)</span></div>
+    </div>
+    <div class="rg-card"><div class="big">@_critical</div><div class="lbl">Servidores em risco crítico</div></div>
+    <div class="rg-card"><div class="big">@_incidents</div><div class="lbl">Incidentes registrados</div></div>
+    <div class="rg-card"><div class="big">@_highIncidents</div><div class="lbl">Incidentes de alta confiança</div></div>
+</div>
+
+<div style="margin-top:18px">
+    <a class="rg-btn" href="/relatorio" target="_blank">Relatório executivo (PDF)</a>
+</div>
+
+@if (_servers.Count == 0)
+{
+    <h2 class="rg-h2">Nenhum agente ainda — instale o primeiro</h2>
+    <div class="rg-card" style="margin-bottom:18px">
+        <p class="rg-sub">Cada agente tem a própria identidade. Na tela <a href="/agentes">Agentes</a>, gere um token de enrolamento: ela mostra o comando de instalação pronto para o servidor de arquivos.</p>
+        <p><a class="rg-btn" href="/agentes">Enrolar o primeiro agente</a></p>
+    </div>
+}
+
+<h2 class="rg-h2">Servidores (pior primeiro)</h2>
+<table class="rg">
+    <thead><tr><th>Servidor</th><th>Nota</th><th>Faixa</th><th>Achados</th><th>Última atividade</th></tr></thead>
+    <tbody>
+        @foreach (var s in _servers)
+        {
+            <tr>
+                <td><a href="@($"/servidor/{s.Name}")">@s.Name</a></td>
+                <td><b>@s.LastScore</b>/100</td>
+                <td><span class="pill @BandPill(s.LastBand)">@ScoreReport.BandLabel(s.LastBand)</span></td>
+                <td>@FindingCount(s)</td>
+                <td>@s.LastSeen.ToLocalTime().ToString("dd/MM HH:mm")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<ServerEntity> _servers = new();
+    private int _networkScore, _critical, _incidents, _highIncidents;
+    private RiskBand _networkBand;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _servers = await Db.Servers.Include(s => s.PostureRecords)
+            .OrderBy(s => s.LastScore).ToListAsync();
+        _networkScore = _servers.Count > 0 ? (int)Math.Round(_servers.Average(s => s.LastScore)) : 0;
+        _networkBand = RiskBands.Of(_networkScore);
+        _critical = _servers.Count(s => s.LastBand == RiskBand.Critical);
+        _incidents = await Db.Detections.CountAsync();
+        _highIncidents = await Db.Detections.CountAsync(d => d.Confidence == Core.Detection.Confidence.High);
+    }
+
+    private static int FindingCount(ServerEntity s)
+    {
+        var last = s.PostureRecords.OrderByDescending(p => p.At).FirstOrDefault();
+        if (last is null) return 0;
+        return System.Text.Json.JsonDocument.Parse(last.FindingsJson).RootElement.GetArrayLength();
+    }
+
+    private static string BandCss(RiskBand b) => b switch
+    {
+        RiskBand.Critical => "var(--crit)", RiskBand.Attention => "var(--att)", _ => "var(--good)"
+    };
+    private static string BandPill(RiskBand b) => b switch
+    {
+        RiskBand.Critical => "b-crit p-crit", RiskBand.Attention => "b-att p-att", _ => "b-good p-good"
+    };
+}

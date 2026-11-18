@@ -1,0 +1,49 @@
+@inherits LayoutComponentBase
+
+<div class="rg-shell">
+    <aside class="rg-side">
+        <div class="rg-brand">
+            <svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true">
+                <path d="M32 4 L56 13 v17 c0 15-10 25-24 30C18 55 8 45 8 30 V13 Z" fill="#9C3F7C"/>
+                <g transform="translate(32 32) scale(0.62) translate(-32 -33)">
+                    <path d="M32 7 C33.5 13 39 16.5 44 21 C50 26.5 53 31.5 53 39 C53 50 44 58 32 58 C20 58 11 50 11 39 C11 31.5 14 26.5 20 21 C25 16.5 30.5 13 32 7 Z" fill="#fff"/>
+                    <circle cx="32" cy="50" r="4" fill="#9C3F7C"/>
+                </g>
+            </svg>
+            <span>RansomGuard</span>
+        </div>
+        <nav class="rg-nav">
+            <a href="/">Visão geral</a>
+            <a href="/incidentes">Incidentes</a>
+            <a href="/agentes">Agentes</a>
+            <a href="/politica">Política</a>
+            <a href="/notificacoes">Notificações</a>
+            <a href="/auditoria">Auditoria</a>
+            <AuthorizeView Roles="admin"><Authorized><a href="/contas">Contas</a></Authorized></AuthorizeView>
+        </nav>
+        <div class="rg-side-foot">
+            <AuthorizeView>
+                <span class="rg-user">@context.User.Identity?.Name</span>
+                <form method="post" action="/auth/logout" style="margin:6px 0 10px">
+                    <AntiforgeryToken />
+                    <button type="submit" class="rg-logout">Sair</button>
+                </form>
+            </AuthorizeView>
+            metadado, nunca conteúdo
+            <a class="rg-register" href="https://www.ransomguard.com.br/#registro" target="_blank" rel="noopener noreferrer">Usa o RansomGuard? Registre seu uso (opcional)</a>
+        </div>
+    </aside>
+    <main class="rg-main">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    Ocorreu um erro. <a href="" class="reload">Recarregar</a> <a class="dismiss">🗙</a>
+</div>
+
+<script>
+  // F35: páginas de leitura (visão geral, incidentes, servidor) atualizam sozinhas a cada 15 s enquanto a aba está visível.
+  (function(){var p=location.pathname;if(!(p==='/'||p.indexOf('/incidentes')===0||p.indexOf('/servidor/')===0||p.indexOf('/incidente/')===0))return;
+  setInterval(function(){if(document.visibilityState==='visible'&&!document.activeElement.closest('form'))location.reload();},15000);})();
+</script>

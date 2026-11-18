@@ -1,0 +1,178 @@
+@page "/politica"
+@page "/politica/{Server}"
+@using Microsoft.EntityFrameworkCore
+@using RansomGuard.Core.Policy
+@using RansomGuard.Core.Response
+@using RansomGuard.Server.Policy
+@inject AgentPolicyService Policies
+@inject RansomGuard.Server.Data.RansomGuardDb Db
+@using RansomGuard.Server.Auth
+
+<PageTitle>RansomGuard — Política de resposta</PageTitle>
+
+<h1 class="rg-h1">Política de resposta — @(IsDefault ? "padrão da rede" : Server)</h1>
+<p class="rg-sub">
+    O agente recebe esta política assinada pela chave da instalação a cada lote e a aplica sem RDP nem registro.
+    @if (!IsDefault) { <span>Sem política específica, o servidor usa a <a href="/politica">padrão da rede</a>.</span> }
+</p>
+
+@if (_saved is not null)
+{
+    <div class="rg-empty">Política salva — versão @_saved.Version. O agente aplica no próximo lote (≤ 5 s) e registra no log.</div>
+}
+
+<EditForm Model="Form" FormName="politica" OnValidSubmit="SaveAsync">
+    <table class="rg">
+        <tbody>
+            <tr>
+                <th>Modo</th>
+                <td>
+                    <InputSelect @bind-Value="Form.Mode">
+                        <option value="Monitor">Monitor — só registra</option>
+                        <option value="Alert">Alert — alerta + snapshot preventivo, sem contenção</option>
+                        <option value="Block">Block — contém incidentes de alta confiança</option>
+                    </InputSelect>
+                </td>
+            </tr>
+            <tr>
+                <th>Degrau máximo</th>
+                <td>
+                    <InputSelect @bind-Value="Form.MaxStep">
+                        <option value="BlockIp">Bloquear IP de origem</option>
+                        <option value="KillSmbSession">+ derrubar sessão SMB</option>
+                        <option value="DenyUserOnShare">+ negar o usuário no share (padrão; sem AD; reversível)</option>
+                        <option value="DisableAdAccount">+ desabilitar a conta no AD (exige direitos no AD)</option>
+                        <option value="IsolateShare">+ isolar o share (afeta todos os usuários)</option>
+                    </InputSelect>
+                </td>
+            </tr>
+            <tr>
+                <th>Allowlist de usuários</th>
+                <td><InputTextArea @bind-Value="Form.AllowlistedUsers" rows="3" placeholder="CORP\svc-backup; CORP\svc-av" style="width:100%" /><br /><small>Separe por ; — contas de backup/AV nunca são contidas (a não ser que toquem canário).</small></td>
+            </tr>
+            <tr>
+                <th>Allowlist de IPs</th>
+                <td><InputTextArea @bind-Value="Form.AllowlistedIps" rows="2" placeholder="10.0.1.9; 10.0.1.10" style="width:100%" /></td>
+            </tr>
+            <tr>
+                <th>Modo aprendizado</th>
+                <td><label><InputCheckbox @bind-Value="Form.LearningMode" /> coletar baseline — alerta e snapshot, sem conter (recomendado na primeira semana)</label></td>
+            </tr>
+        </tbody>
+    </table>
+    <p style="margin-top:14px">
+        @if (_isAdmin) { <button class="rg-btn" type="submit">Salvar e publicar</button> } else { <span class="rg-sub">Conta de leitura: só o admin publica política.</span> }
+        @if (_current is not null) { <span class="rg-sub" style="margin-left:12px">versão atual @_current.Version · @_current.UpdatedAt.ToLocalTime().ToString("dd/MM HH:mm")</span> }
+    </p>
+</EditForm>
+
+@if (IsDefault)
+{
+    <h2 class="rg-h2">Blocklist de rede (@_blocklist.Count)</h2>
+    <p class="rg-sub">IPs de origem de incidentes de alta confiança <b>contidos</b> em qualquer servidor. Todos os agentes bloqueiam no firewall por 24 h — o que FS01 viu protege FS02. Remova aqui para liberar em todos.</p>
+    @if (_blocklist.Count == 0)
+    {
+        <div class="rg-empty">Nenhum IP bloqueado na rede.</div>
+    }
+    else
+    {
+        <table class="rg">
+            <thead><tr><th>IP</th><th>Expira</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var b in _blocklist)
+                {
+                    <tr>
+                        <td><code>@b.Ip</code></td>
+                        <td>@b.ExpiresAt.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                        <td>
+                            @if (_isAdmin)
+                            {
+                                <EditForm Model="this" FormName="@($"unblock-{b.Ip.Replace('.', '-').Replace(':', '-')}")" OnSubmit="@(() => UnblockAsync(b.Ip))">
+                                    <button class="rg-btn" type="submit">Liberar na rede</button>
+                                </EditForm>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@if (IsDefault && _overrides.Count > 0)
+{
+    <h2 class="rg-h2">Servidores com política própria</h2>
+    <ul>
+        @foreach (var o in _overrides) { <li><a href="@($"/politica/{o.Server}")">@o.Server</a> — @o.Mode até @o.MaxStep (v@(o.Version))</li> }
+    </ul>
+}
+
+@code {
+    [Parameter] public string? Server { get; set; }
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? Auth { get; set; }
+    private bool _isAdmin;   // D10: sem estado de autenticação, ou sem o papel, não é administrador (falha fechada)
+    private string _me = "-";
+    private bool IsDefault => string.IsNullOrWhiteSpace(Server);
+    private string Scope => IsDefault ? AgentPolicyDocument.AllServers : Server!;
+
+    [SupplyParameterFromForm] private PolicyForm Form { get; set; } = new();
+    private AgentPolicyEntity? _current, _saved;
+    private List<AgentPolicyEntity> _overrides = new();
+    private IReadOnlyList<(string Ip, DateTime ExpiresAt)> _blocklist = Array.Empty<(string, DateTime)>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // L9 (laboratório, sessão 2): quando outro formulário desta tela é enviado, o deste chega nulo — e a tela dava 500.
+        Form ??= new();
+        if (Auth is not null)
+        {
+            var user = (await Auth).User;
+            _isAdmin = user.Identity?.IsAuthenticated == true && user.IsInRole(Roles.Admin);
+            _me = user.Identity?.Name ?? "-";
+        }
+        _current = await Policies.GetAsync(Scope);
+        if (_current is not null && Form.IsPristine)
+            Form = PolicyForm.From(_current);
+        if (IsDefault)
+        {
+            _overrides = await Db.AgentPolicies.Where(p => p.Server != AgentPolicyDocument.AllServers).OrderBy(p => p.Server).ToListAsync();
+            _blocklist = NetworkBlocklist.Parse(_current?.BlockedIps).Where(b => b.ExpiresAt > DateTime.UtcNow).ToList();
+        }
+    }
+
+    private async Task UnblockAsync(string ip)
+    {
+        if (!_isAdmin) return;
+        await Policies.RemoveFromNetworkBlocklistAsync(ip, DateTime.UtcNow);
+        await OperatorAudit.RecordAsync(Db, _me, "blocklist.release", ip);
+        _current = await Policies.GetAsync(Scope);
+        _blocklist = NetworkBlocklist.Parse(_current?.BlockedIps).Where(b => b.ExpiresAt > DateTime.UtcNow).ToList();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (!_isAdmin) return;
+        _saved = await Policies.SaveAsync(new AgentPolicyEntity
+        {
+            Server = Scope, Mode = Form.Mode, MaxStep = Form.MaxStep,
+            AllowlistedUsers = Form.AllowlistedUsers ?? "", AllowlistedIps = Form.AllowlistedIps ?? "", LearningMode = Form.LearningMode,
+            BlockedIps = _current?.BlockedIps ?? ""   // a blocklist é gerida pelos incidentes e pelo botão "Liberar", não pelo formulário
+        }, DateTime.UtcNow);
+        _current = _saved;
+        await OperatorAudit.RecordAsync(Db, _me, "policy.save", $"{Scope}: {Form.Mode} até {Form.MaxStep}, aprendizado={Form.LearningMode} (v{_saved.Version})");
+    }
+
+    public sealed class PolicyForm
+    {
+        public string Mode { get; set; } = "Monitor";
+        public string MaxStep { get; set; } = "DenyUserOnShare";
+        public string? AllowlistedUsers { get; set; }
+        public string? AllowlistedIps { get; set; }
+        public bool LearningMode { get; set; }
+        public bool IsPristine => Mode == "Monitor" && MaxStep == "DenyUserOnShare" && AllowlistedUsers is null && AllowlistedIps is null && !LearningMode;
+        public static PolicyForm From(AgentPolicyEntity e) => new()
+        {
+            Mode = e.Mode, MaxStep = e.MaxStep, AllowlistedUsers = e.AllowlistedUsers, AllowlistedIps = e.AllowlistedIps, LearningMode = e.LearningMode
+        };
+    }
+}

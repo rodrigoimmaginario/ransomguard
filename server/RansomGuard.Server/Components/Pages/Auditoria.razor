@@ -1,0 +1,39 @@
+@page "/auditoria"
+@using Microsoft.EntityFrameworkCore
+@using RansomGuard.Server.Auth
+@using RansomGuard.Server.Data
+@inject RansomGuardDb Db
+
+<PageTitle>RansomGuard — Auditoria</PageTitle>
+
+<h1 class="rg-h1">Auditoria do operador</h1>
+<p class="rg-sub">Quem fez o quê no painel: login, política, blocklist, reversões, contas, backup. Só metadado — nunca senha nem segredo.</p>
+
+@if (_rows.Count == 0)
+{
+    <div class="rg-empty">Nenhuma ação registrada ainda.</div>
+}
+else
+{
+    <table class="rg">
+        <thead><tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Detalhe</th><th>Origem</th></tr></thead>
+        <tbody>
+            @foreach (var r in _rows)
+            {
+                <tr>
+                    <td>@r.At.ToLocalTime().ToString("dd/MM HH:mm:ss")</td>
+                    <td>@r.User</td>
+                    <td><span class="pill @(r.Action.EndsWith(".fail") ? "p-crit" : "p-ok")">@r.Action</span></td>
+                    <td class="rg-fix">@r.Detail</td>
+                    <td><code>@r.Origin</code></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<OperatorAuditEntry> _rows = new();
+    protected override async Task OnInitializedAsync() =>
+        _rows = await Db.OperatorAudit.OrderByDescending(a => a.At).ThenByDescending(a => a.Id).Take(500).ToListAsync();
+}

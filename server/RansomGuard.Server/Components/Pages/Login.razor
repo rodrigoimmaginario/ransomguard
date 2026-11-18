@@ -1,0 +1,50 @@
+@page "/login"
+@attribute [AllowAnonymous]
+
+<PageTitle>RansomGuard — Entrar</PageTitle>
+
+<div class="auth-wrap">
+    <div class="auth-card">
+        <div class="rg-brand" style="justify-content:center;margin-bottom:8px">
+            <svg viewBox="0 0 64 64" width="34" height="34" aria-hidden="true">
+                <path d="M32 4 L56 13 v17 c0 15-10 25-24 30C18 55 8 45 8 30 V13 Z" fill="#9C3F7C"/>
+                <g transform="translate(32 32) scale(0.62) translate(-32 -33)">
+                    <path d="M32 7 C33.5 13 39 16.5 44 21 C50 26.5 53 31.5 53 39 C53 50 44 58 32 58 C20 58 11 50 11 39 C11 31.5 14 26.5 20 21 C25 16.5 30.5 13 32 7 Z" fill="#fff"/>
+                    <circle cx="32" cy="50" r="4" fill="#9C3F7C"/>
+                </g>
+            </svg>
+        </div>
+        <h1 class="rg-h1" style="text-align:center">Entrar</h1>
+        <p class="rg-sub" style="text-align:center">Painel RansomGuard — acesso restrito ao administrador.</p>
+
+        @if (_msg is not null)
+        {
+            <div class="auth-erro">@_msg</div>
+        }
+
+        <form method="post" action="/auth/login">
+            <AntiforgeryToken />
+            <label class="auth-field">
+                <span>Usuário</span>
+                <input name="username" value="admin" autocomplete="username" />
+            </label>
+            <label class="auth-field">
+                <span>Senha</span>
+                <input name="password" type="password" autocomplete="current-password" required />
+            </label>
+            <button class="rg-btn" type="submit">Entrar</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "erro")] public int? Erro { get; set; }
+
+    private string? _msg => Erro switch
+    {
+        1 => "Usuário ou senha incorretos.",                                  // WrongCredentials
+        2 => "Muitas tentativas. Aguarde alguns minutos e tente de novo.",    // Throttled
+        3 => "Nenhuma conta configurada. Refaça a configuração inicial.",     // NoAccount
+        _ => null
+    };
+}

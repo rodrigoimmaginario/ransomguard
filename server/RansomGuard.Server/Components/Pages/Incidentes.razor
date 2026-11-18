@@ -1,0 +1,60 @@
+@page "/incidentes"
+@using Microsoft.EntityFrameworkCore
+@using RansomGuard.Core.Detection
+@using RansomGuard.Server.Data
+@inject RansomGuardDb Db
+
+<PageTitle>RansomGuard — Incidentes</PageTitle>
+
+<h1 class="rg-h1">Incidentes</h1>
+<p class="rg-sub">Detecções correlacionadas por usuário, IP de origem e share — com a trilha real de contenção do agente (F32)</p>
+
+@if (_incidents.Count == 0)
+{
+    <div class="rg-empty">Nenhum incidente registrado. 🎉</div>
+}
+else
+{
+    <table class="rg">
+        <thead>
+            <tr><th>Quando</th><th>Servidor</th><th>Usuário</th><th>Origem (IP)</th><th>Share</th><th>Arquivos</th><th>Confiança</th><th>Razões</th><th>Contenção</th><th>Alerta</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var d in _incidents)
+            {
+                <tr>
+                    <td>@d.At.ToLocalTime().ToString("dd/MM HH:mm:ss")</td>
+                    <td>@d.Server?.Name</td>
+                    <td>@d.User</td>
+                    <td><code>@d.SourceIp</code></td>
+                    <td>@d.Share</td>
+                    <td>@d.AffectedFiles</td>
+                    <td><span class="pill @(d.Confidence == Confidence.High ? "p-high" : "p-med")">@d.Confidence</span></td>
+                    <td class="rg-fix">@d.Reasons</td>
+                    <td>@ContainmentLabel(d)</td>
+                    <td>@(d.Alerted ? "✔" : "—")</td>
+                    <td><a class="rg-btn" href="@($"/incidente/{d.Id}")">Detalhe</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<DetectionRecord> _incidents = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _incidents = await Db.Detections.Include(d => d.Server).Include(d => d.Actions)
+            .OrderByDescending(d => d.At).Take(200).ToListAsync();
+    }
+
+    private static string ContainmentLabel(DetectionRecord d)
+    {
+        if (d.Source != "agent") return "derivado pelo painel";
+        var executed = d.Actions.Count(a => a.Operation == "execute" && a.Step != "PreemptiveSnapshot");   // snapshot protege, não contém
+        var failed = d.Actions.Count(a => a.Operation == "fail");
+        if (executed == 0 && failed == 0) return $"{d.Mode}: só alerta";
+        return failed == 0 ? $"{executed} ação(ões) executada(s)" : $"{executed} ok · {failed} falha(s)";
+    }
+}

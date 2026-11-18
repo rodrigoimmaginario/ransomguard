@@ -1,0 +1,6 @@
+[
+  { "file": ".github/workflows/ci.yml", "label": "pasta de governança interna", "reason": "paths-ignore do repositório privado de laboratório; no público a pasta não existe" },
+  { "file": ".github/workflows/ci.yml", "label": "pasta de documentos internos", "reason": "paths-ignore do repositório privado de laboratório; no público a pasta não existe" },
+  { "file": ".vercelignore", "label": "pasta de governança interna", "reason": "lista do que nunca vai para o deploy do site" },
+  { "file": ".vercelignore", "label": "pasta de documentos internos", "reason": "lista do que nunca vai para o deploy do site" }
+]
