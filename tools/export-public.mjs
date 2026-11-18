@@ -5,6 +5,7 @@
 //
 //   node tools/export-public.mjs --out out/public          exporta e varre
 //   node tools/export-public.mjs --check                   só varre o que seria exportado (não copia)
+//   node tools/export-public.mjs --check --strict          no repositório público: arquivo versionado fora da lista também falha
 //
 // Só considera arquivos versionados (git ls-files): nada de bin/, obj/, out/ ou arquivo local.
 import { execFileSync } from 'node:child_process';
@@ -25,6 +26,7 @@ export const ALLOW = [
   'tools/build-release.ps1', 'tools/ceremony.ps1', 'tools/sign-catalog.ps1', 'tools/coverage-gate.mjs',
   'tools/panel-layout-check.mjs', 'tools/run-simulators.ps1', 'tools/scan-mojibake.mjs', 'tools/site-layout-check.mjs',
   'tools/test-msi-install.ps1', 'tools/export-public.mjs', 'tools/export-public.allow.json',
+  'tools/hooks/', 'tools/install-hooks.ps1',
 ];
 
 /** Mesmo dentro de uma pasta permitida, nunca entra. */
@@ -89,10 +91,14 @@ function gitFiles(root) {
     .split('\0').filter(Boolean).map((f) => f.replace(/\\/g, '/'));
 }
 
-export function exportTree({ root, out, check = false }) {
+export function exportTree({ root, out, check = false, strict = false }) {
   const allowFile = join(root, 'tools', 'export-public.allow.json');
   const allow = existsSync(allowFile) ? JSON.parse(readFileSync(allowFile, 'utf8')) : [];
-  const files = selectFiles(gitFiles(root)).filter((f) => existsSync(join(root, f)));
+  const tracked = gitFiles(root).filter((f) => existsSync(join(root, f)));
+  const files = selectFiles(tracked);
+  // Modo estrito (repositório público): todo arquivo versionado já é público, então o que estiver fora da lista não
+  // pode simplesmente "não ser exportado" — é achado, para alguém decidir se entra na lista ou sai do repositório.
+  const outside = strict ? tracked.filter((f) => !files.includes(f)) : [];
   const findings = [];
   if (!check) { rmSync(out, { recursive: true, force: true }); mkdirSync(out, { recursive: true }); }
   for (const f of files) {
@@ -107,20 +113,22 @@ export function exportTree({ root, out, check = false }) {
     return scanText(f, buf.toString('utf8')).filter((x) => !x.secret).map((x) => `${x.file}|${x.label}`);
   }));
   const stale = allow.filter((a) => !used.has(`${a.file}|${a.label}`));
-  return { files, findings, stale };
+  return { files, findings, stale, outside };
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const args = process.argv.slice(2);
   const check = args.includes('--check');
+  const strict = args.includes('--strict');
   const outArg = args.includes('--out') ? args[args.indexOf('--out') + 1] : 'out/public';
   const rootArg = args.includes('--root') ? args[args.indexOf('--root') + 1] : resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const root = resolve(rootArg);
-  const { files, findings, stale } = exportTree({ root, out: resolve(root, outArg), check });
+  const { files, findings, stale, outside } = exportTree({ root, out: resolve(root, outArg), check, strict });
+  for (const f of outside) console.log(`  fora da lista  ${f}`);
   for (const f of findings) console.log(`  ${f.secret ? 'SEGREDO' : 'interno'}  ${f.file}:${f.line}  ${f.label}`);
   for (const s of stale) console.log(`  exceção sem uso  ${s.file}  ${s.label}`);
-  const ok = findings.length === 0 && stale.length === 0;
+  const ok = findings.length === 0 && stale.length === 0 && outside.length === 0;
   console.log(`${ok ? 'OK' : 'FALHOU'} — ${files.length} arquivo(s) ${check ? 'seriam exportados' : `exportados para ${outArg}`}; ` +
     `${findings.length} achado(s); ${stale.length} exceção(ões) sem uso.`);
   process.exit(ok ? 0 : 1);

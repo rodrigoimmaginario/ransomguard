@@ -152,6 +152,9 @@ jobs:
         with:
           node-version: 24
 
+      - name: Varredura do repositório público (segredos, nomes internos, arquivos fora da lista)
+        run: node tools/export-public.mjs --check --strict
+
       - name: Varredura de caracteres corrompidos (edição automatizada)
         run: node tools/scan-mojibake.mjs
 

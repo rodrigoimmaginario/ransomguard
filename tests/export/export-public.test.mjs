@@ -71,3 +71,16 @@ test('a exportação copia só o permitido e falha com um segredo plantado', () 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('modo estrito (repositório público): arquivo versionado fora da lista é achado, e o resto continua valendo', () => {
+  const root = repoWith({ 'core/A.cs': 'class A {}', [`${['la', 'b'].join('')}/azure/Start-Lab.ps1`]: 'laboratório' });
+  try {
+    let r = spawnSync(process.execPath, [script, '--root', root, '--check'], { encoding: 'utf8' });
+    assert.equal(r.status, 0, 'sem --strict, o que está fora da lista apenas não seria exportado');
+    r = spawnSync(process.execPath, [script, '--root', root, '--check', '--strict'], { encoding: 'utf8' });
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stdout, /fora da lista\s+lab\/azure\/Start-Lab\.ps1/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

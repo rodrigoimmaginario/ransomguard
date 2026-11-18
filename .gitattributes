@@ -26,3 +26,6 @@
 *.pdb     binary
 *.zip     binary
 *.minisig binary
+
+# Gancho de pre-push: script sh, sempre LF (CRLF quebra o sh).
+tools/hooks/pre-push text eol=lf

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Antes de qualquer push: varredura de segredos e nomes internos, testes Node e testes .NET.
+# Instalado por tools/install-hooks.ps1 (git config core.hooksPath tools/hooks).
+exec node "$(git rev-parse --show-toplevel)/tools/hooks/pre-push.mjs"
