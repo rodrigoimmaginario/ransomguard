@@ -64,7 +64,7 @@ test('editorial contract rejects unsupported guarantees across the page and the 
     /tudo que ele faz é reversível|everything it does you can reverse/i,
     /nada sai (?:da sua rede|para a nuvem)|nothing (?:leaves your network|goes to the cloud)/i,
     /MSI assinado|signed (?:agent )?MSI|instalador assinado/i, /backup passa ileso|backups sail through/i,
-    /servidor salvo|server saved/i, /garant(?:e|ia) (?:total|de prote)|guaranteed protection/i,
+    /servidor salvo|server saved/i, /garante (?:a )?prote|garantia total|(?<!não (?:é )?uma )garantia de prote|guaranteed protection/i,
     /bloqueia (?:qualquer|todo) ransomware|stops (?:any|every|all) ransomware/i
   ]) assert.doesNotMatch(html + plain(html) + og, forbidden);
 });
@@ -108,4 +108,22 @@ test('authorship, license, structured data and share image match the open-source
   assert.match(og, /Free and open source/);
   assert.match(og, new RegExp(tag.replace(/\./g, '\\.')));
   assert.doesNotMatch(og, /Piloto|pilot|Release Candidate/i);
+});
+
+test('a first-time visitor sees the purpose before the details: the problem, what it does, and the animated diagram', () => {
+  const purpose = section('proposito');
+  const product = section('produto');
+  const how = section('como');
+  assert.ok(purpose && product && how, 'purpose, product and how sections required');
+  const order = ['class="hero"', 'id="proposito"', 'id="produto"', 'id="como"', 'id="limites"'].map((s) => html.indexOf(s));
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'hero → purpose → product → how → limits');
+  assert.match(purpose, /data-detection-compare/);
+  assert.match(plain(purpose), /O ataque pode começar em outra máquina/);
+  assert.match(plain(purpose), /The attack can start on another machine/);
+  assert.match(plain(purpose), /não a substitui|does not replace it/);
+  for (const t of ['Identificar riscos', 'Identify risks', 'Detectar', 'Detect', 'Conter', 'Contain']) assert.ok(plain(product).includes(t), t);
+  const diagram = how.match(/<div class="rg-diagram"[\s\S]*?<\/svg>/)?.[0];
+  assert.ok(diagram, 'animated diagram required in how it works');
+  const steps = ['bloqueia IP', 'nega acesso', 'encerra sessão'].map((s) => diagram.indexOf(s));
+  assert.ok(steps.every((i) => i > 0) && steps[0] < steps[1] && steps[1] < steps[2], 'diagram follows the containment order: IP, deny, session');
 });

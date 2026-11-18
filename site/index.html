@@ -159,6 +159,61 @@ try{var l=localStorage.getItem('rg-lang')||(((navigator.language||'pt').slice(0,
   .compat-row{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:10px 26px}
   .compat-row li{font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--muted)}
 
+  /* comparação: processo no endpoint × efeito no servidor (inspirada no nível, não no layout, do Webhound) */
+  .detect-compare{display:grid;grid-template-columns:1fr 1fr;gap:18px;position:relative}
+  .compare-card{border:1px solid var(--line);border-radius:20px;padding:28px;background:var(--surface);box-shadow:var(--sh-sm);min-width:0}
+  .compare-card.rg{background:#211E21;border-color:#554650;color:#FFF5FC;box-shadow:var(--sh-md)}
+  .compare-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+  .compare-name{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:750}.compare-name svg{width:24px;height:24px;flex:none}
+  .compare-tag{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--soft);background:var(--surface-2);padding:4px 8px;border-radius:999px;white-space:nowrap}
+  .rg .compare-tag{color:#E9A9D6;background:#3A2338}.compare-card h3{font-size:24px;max-width:20ch}.compare-card>p{color:var(--muted);margin-top:10px;font-size:15px}.compare-card.rg>p{color:#D0A2C8}
+  .signal-list{display:grid;gap:9px;margin-top:20px}.signal{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--surface-2);color:var(--ink);font-size:13.5px}.signal::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--soft);flex:none}
+  .rg .signal{background:#312033;color:#F9EAF5}.rg .signal::before{background:#55D69D;box-shadow:0 0 0 4px rgba(85,214,157,.09)}
+  .compare-note{margin-top:18px;font-family:var(--font-mono);font-size:11.5px;color:var(--soft)}.rg .compare-note{color:#BD8FB3}
+  .bridge{margin-top:24px;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);border-radius:var(--r);padding:22px 26px}
+  .bridge p{color:var(--ink);font-size:15.5px;max-width:none}.bridge b{color:var(--accent-ink)}
+  @media(max-width:760px){.detect-compare{grid-template-columns:1fr}.compare-card{padding:22px}.compare-card h3{font-size:21px}.compare-head{align-items:flex-start;flex-direction:column}}
+
+  /* diagrama animado "como funciona" */
+  .rg-diagram{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:22px 18px 12px;box-shadow:var(--sh-sm);margin-bottom:30px;overflow-x:auto}
+  @keyframes rgd_pkt{0%{offset-distance:0%;opacity:0}6%{opacity:1}44%{offset-distance:100%;opacity:1}50%{offset-distance:100%;opacity:0}100%{opacity:0}}
+  @keyframes rgd_ring{0%,44%{opacity:0;transform:scale(.5)}52%{opacity:.85;transform:scale(1)}72%{opacity:0;transform:scale(1.35)}100%{opacity:0}}
+  @keyframes rgd_up{0%{offset-distance:0%;opacity:0}15%{opacity:1}85%{opacity:1}100%{offset-distance:100%;opacity:0}}
+  @keyframes rgd_st1{0%,54%{opacity:.22}62%,92%{opacity:1}100%{opacity:.22}}
+  @keyframes rgd_st2{0%,62%{opacity:.22}70%,92%{opacity:1}100%{opacity:.22}}
+  @keyframes rgd_st3{0%,70%{opacity:.22}78%,92%{opacity:1}100%{opacity:.22}}
+  @keyframes rgd_saved{0%,78%{opacity:.35}86%,96%{opacity:1}100%{opacity:.35}}
+  .rgd-pkt{offset-path:path('M108 172 L262 172')}
+  .rgd-up{offset-path:path('M300 140 L336 82')}
+  .rgd-cat{offset-path:path('M470 56 L432 60')}
+  .rgd-ring{transform-box:fill-box;transform-origin:center}
+  @media (prefers-reduced-motion:no-preference){
+    .rgd-pkt{animation:rgd_pkt 4.4s ease-in-out infinite}
+    .rgd-ring{animation:rgd_ring 4.4s ease-in-out infinite}
+    .rgd-up{animation:rgd_up 2.4s linear infinite}
+    .rgd-cat{animation:rgd_up 2.4s linear infinite;animation-delay:.5s}
+    .rgd-st1{animation:rgd_st1 4.4s ease-in-out infinite}
+    .rgd-st2{animation:rgd_st2 4.4s ease-in-out infinite}
+    .rgd-st3{animation:rgd_st3 4.4s ease-in-out infinite}
+    .rgd-saved{animation:rgd_saved 4.4s ease-in-out infinite}
+  }
+  @media (prefers-reduced-motion:reduce){.rgd-pkt,.rgd-cat{opacity:0}.rgd-st1,.rgd-st2,.rgd-st3,.rgd-saved{opacity:1}}
+  @media (max-width:760px){.stakes{grid-template-columns:1fr}}
+
+  /* capacidades em composição bento, com hierarquia e ícones coerentes */
+  .fronts{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+  .front{grid-column:span 6;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--sh-sm);min-width:0}
+  .front:last-child{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:36px;background:linear-gradient(135deg,var(--surface),var(--surface-2));border-color:var(--accent);color:var(--ink);box-shadow:var(--sh-md)}
+  .front-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+  .feature-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:13px;background:var(--accent-soft);color:var(--accent-ink);flex:none}.feature-icon svg{width:24px;height:24px}
+  .front:last-child .feature-icon{background:var(--accent-soft);color:var(--accent-ink)}
+  .front .k{font-family:var(--font-mono);font-size:11.5px;color:var(--accent-ink);text-transform:uppercase;letter-spacing:.1em}
+  .front:last-child .k{color:var(--accent-ink)}.front h3{font-size:24px;margin-top:6px}.front p{color:var(--muted);font-size:15px;margin-top:10px}
+  .front:last-child p{color:var(--muted)}.front ul{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:10px}
+  .front li{position:relative;padding-left:25px;font-size:14.5px;color:var(--ink)}.front:last-child li{color:var(--ink)}
+  .front li::before{content:"";position:absolute;left:2px;top:6px;width:13px;height:8px;border-left:2.4px solid var(--ok);border-bottom:2.4px solid var(--ok);transform:rotate(-45deg)}
+  @media (max-width:760px){.front,.front:last-child{grid-column:1/-1;display:block}.front{padding:22px}.front:last-child ul{margin-top:18px}}
+
   .how{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;counter-reset:step}
   .step{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--sh-sm);position:relative;min-width:0}
   .step::before{counter-increment:step;content:counter(step);position:absolute;top:-13px;left:18px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:13px;display:grid;place-items:center}
@@ -239,6 +294,7 @@ try{var l=localStorage.getItem('rg-lang')||(((navigator.language||'pt').slice(0,
   <div class="wrap">
     <a class="brand" href="#" aria-label="RansomGuard — início"><img src="/favicon.svg" alt=""><span class="brand-word">RansomGuard</span></a>
     <nav class="desktop-links" aria-label="Navegação principal">
+      <a href="#proposito"><span lang="pt">Para que serve</span><span lang="en">What it is for</span></a>
       <a href="#como"><span lang="pt">Como funciona</span><span lang="en">How it works</span></a>
       <a href="#limites"><span lang="pt">Proteção e limites</span><span lang="en">Protection and limits</span></a>
       <a href="#seguranca"><span lang="pt">Segurança</span><span lang="en">Security</span></a>
@@ -255,6 +311,7 @@ try{var l=localStorage.getItem('rg-lang')||(((navigator.language||'pt').slice(0,
       <details class="mobile-nav" data-mobile-menu>
         <summary aria-label="Abrir menu"><span class="sr-only">Menu</span></summary>
         <nav class="mobile-panel" aria-label="Navegação mobile">
+          <a href="#proposito"><span lang="pt">Para que serve</span><span lang="en">What it is for</span></a>
           <a href="#como"><span lang="pt">Como funciona</span><span lang="en">How it works</span></a>
           <a href="#limites"><span lang="pt">Proteção e limites</span><span lang="en">Protection and limits</span></a>
           <a href="#seguranca"><span lang="pt">Segurança</span><span lang="en">Security</span></a>
@@ -305,6 +362,104 @@ try{var l=localStorage.getItem('rg-lang')||(((navigator.language||'pt').slice(0,
   </div>
 </section>
 
+<section id="proposito">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow"><span lang="pt">Para que serve</span><span lang="en">What it is for</span></span>
+      <h2 lang="pt">O ataque pode começar em outra máquina. Seus arquivos continuam em risco.</h2>
+      <h2 lang="en">The attack can start on another machine. Your shared files are still at risk.</h2>
+      <p class="lead" lang="pt">Uma estação comprometida pode usar uma conta com acesso aos compartilhamentos para alterar arquivos <b>pela rede</b>. Monitorar o servidor de destino acrescenta uma camada à proteção das estações.</p>
+      <p class="lead" lang="en">A compromised workstation can use an account with share access to modify files <b>over the network</b>. Monitoring the destination server adds a layer alongside endpoint protection.</p>
+    </div>
+    <div class="detect-compare" data-detection-compare>
+      <article class="compare-card">
+        <div class="compare-head">
+          <span class="compare-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span lang="pt">Proteção no endpoint</span><span lang="en">Endpoint protection</span></span>
+          <span class="compare-tag"><span lang="pt">vê o processo</span><span lang="en">sees the process</span></span>
+        </div>
+        <h3 lang="pt">Protege a máquina em que o código executa.</h3><h3 lang="en">Protects the machine where the code runs.</h3>
+        <p lang="pt">É uma camada essencial. Mas, numa criptografia remota via SMB, o processo malicioso pode rodar em outra estação — não no servidor de arquivos.</p>
+        <p lang="en">It is an essential layer. But during remote SMB encryption, the malicious process may run on another workstation — not on the file server.</p>
+        <div class="signal-list">
+          <span class="signal"><span lang="pt">Processo e comportamento local</span><span lang="en">Local process and behavior</span></span>
+          <span class="signal"><span lang="pt">Malware e exploração no endpoint</span><span lang="en">Malware and endpoint exploitation</span></span>
+          <span class="signal"><span lang="pt">Resposta na estação comprometida</span><span lang="en">Response on the compromised workstation</span></span>
+        </div>
+        <p class="compare-note"><span lang="pt">Mantenha essa camada. O RansomGuard não a substitui.</span><span lang="en">Keep this layer. RansomGuard does not replace it.</span></p>
+      </article>
+      <article class="compare-card rg">
+        <div class="compare-head">
+          <span class="compare-name"><img src="/favicon.svg" width="24" height="24" alt=""><span>RansomGuard</span></span>
+          <span class="compare-tag"><span lang="pt">vê o efeito</span><span lang="en">sees the effect</span></span>
+        </div>
+        <h3 lang="pt">Monitora os arquivos no servidor de destino.</h3><h3 lang="en">Monitors files on the destination server.</h3>
+        <p lang="pt">Correlaciona eventos de arquivo, canários e sinais do Windows com usuário, IP e compartilhamento disponíveis na auditoria. A resposta segue a política do administrador.</p>
+        <p lang="en">Correlates file events, canaries and Windows signals with the user, IP and share available in audit data. Response follows the administrator's policy.</p>
+        <div class="signal-list">
+          <span class="signal"><span lang="pt">Efeito real nos arquivos do servidor</span><span lang="en">Actual effect on server files</span></span>
+          <span class="signal"><span lang="pt">Usuário, IP de origem e share</span><span lang="en">User, source IP and share</span></span>
+          <span class="signal"><span lang="pt">IP → acesso ao compartilhamento → sessão</span><span lang="en">IP → share access → session</span></span>
+        </div>
+        <p class="compare-note"><span lang="pt">Não substitui EDR, controle de acesso ou backup.</span><span lang="en">Does not replace EDR, access controls or backups.</span></p>
+      </article>
+    </div>
+    <div class="bridge">
+      <p lang="pt"><b>O objetivo é limitar o alcance do incidente.</b> O RansomGuard ajuda a identificar riscos de configuração, detectar atividade suspeita e restringir acessos no servidor. Mantenha suas demais camadas de defesa e valide a resposta no seu ambiente.</p>
+      <p lang="en"><b>The goal is to limit the incident's reach.</b> RansomGuard helps identify configuration risks, detect suspicious activity and restrict access on the server. Keep your other defenses and validate response in your own environment.</p>
+    </div>
+  </div>
+</section>
+
+<section id="produto" style="background:var(--bg-tint)">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow"><span lang="pt">O que ele faz</span><span lang="en">What it does</span></span>
+      <h2 lang="pt">Da identificação de riscos à resposta</h2>
+      <h2 lang="en">From identifying risks to responding</h2>
+      <p class="lead" lang="pt">Saiba o que corrigir, acompanhe os sinais e defina quando o produto pode agir.</p>
+      <p class="lead" lang="en">See what needs fixing, monitor the signals and decide when the product may act.</p>
+    </div>
+    <div class="fronts">
+      <div class="front">
+        <div class="front-top"><div><span class="k"><span lang="pt">1 · Identificar riscos</span><span lang="en">1 · Identify risks</span></span>
+          <h3 lang="pt">Score de Risco</h3><h3 lang="en">Risk Score</h3></div>
+          <span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 19V9m5 10V5m5 14v-7m5 7V3"/><path d="M2 21h20"/></svg></span></div>
+        <p lang="pt">Avaliação de configuração por servidor, com nota e correções priorizadas. É um diagnóstico de postura, não uma garantia de proteção.</p>
+        <p lang="en">A configuration assessment per server, with a score and prioritized fixes. It assesses posture; it is not a protection guarantee.</p>
+        <ul>
+          <li lang="pt">Assinatura SMB, compartilhamentos expostos, cópias de sombra e auditoria</li><li lang="en">SMB signing, exposed shares, shadow copies and auditing</li>
+          <li lang="pt">Lista priorizada com o comando ou a GPO de correção</li><li lang="en">Prioritized list with the fixing command or GPO</li>
+          <li lang="pt">Relatório executivo pronto para imprimir</li><li lang="en">Print-ready executive report</li>
+        </ul>
+      </div>
+      <div class="front">
+        <div class="front-top"><div><span class="k"><span lang="pt">2 · Detectar atividade suspeita</span><span lang="en">2 · Detect suspicious activity</span></span>
+          <h3 lang="pt">Monitor dos servidores</h3><h3 lang="en">Server monitor</h3></div>
+          <span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg></span></div>
+        <p lang="pt">Detecção em camadas com recursos nativos do Windows, inclusive quando o ataque vem de outra máquina.</p>
+        <p lang="en">Layered detection on native Windows features, including when the attack comes from another machine.</p>
+        <ul>
+          <li lang="pt">Arquivos-canário e auditoria de compartilhamento: quem, de onde, o quê</li><li lang="en">Canary files and share auditing: who, from where, what</li>
+          <li lang="pt">Regravação em massa de arquivos existentes, mesmo sem tocar canário</li><li lang="en">Mass overwrite of existing files, even without touching a canary</li>
+          <li lang="pt">FSRM dirigido por catálogo assinado; remoção de cópias de sombra e adulteração do agente viram incidente</li><li lang="en">FSRM driven by a signed catalog; shadow copy deletion and agent tampering become incidents</li>
+        </ul>
+      </div>
+      <div class="front">
+        <div><div class="front-top"><div><span class="k"><span lang="pt">3 · Conter acessos</span><span lang="en">3 · Contain access</span></span>
+          <h3 lang="pt">Contenção por política</h3><h3 lang="en">Policy-driven containment</h3></div>
+          <span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 20 7v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7l8-4Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span></div>
+          <p lang="pt">Em modo Block, só para incidentes de Alta confiança. Modo Monitor, allowlist e aprendizado ajudam a reduzir falsos positivos, mas exigem validação no seu ambiente.</p>
+          <p lang="en">In Block mode, only for High-confidence incidents. Monitor mode, allowlists and learning help reduce false positives but require validation in your environment.</p></div>
+        <ul>
+          <li lang="pt">Bloqueia o IP, nega o acesso ao compartilhamento e encerra a sessão SMB</li><li lang="en">Blocks the IP, denies share access and closes the SMB session</li>
+          <li lang="pt">Resposta no AD é opcional, com permissões e política específicas</li><li lang="en">AD response is optional, with specific permissions and policy</li>
+          <li lang="pt">Cada ação registrada, com Desfazer no painel</li><li lang="en">Every action recorded, with Undo in the dashboard</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="como">
   <div class="wrap">
     <div class="section-head">
@@ -312,6 +467,54 @@ try{var l=localStorage.getItem('rg-lang')||(((navigator.language||'pt').slice(0,
       <h2 lang="pt">Observa o servidor, atribui o ataque, contém e deixa desfazer.</h2>
       <h2 lang="en">Watches the server, attributes the attack, contains it and lets you undo.</h2>
     </div>
+    <div class="rg-diagram" aria-hidden="true">
+      <svg viewBox="0 0 640 330" width="100%" role="img" style="max-width:640px;display:block;margin:0 auto">
+        <defs>
+          <g id="rgOnion">
+            <circle cx="33" cy="36" r="24" fill="#C77CB0" stroke="#8E3B63" stroke-width="2"/>
+            <path d="M30 12 Q-15 40 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+            <path d="M30 12 Q-4 40 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+            <path d="M30 12 Q6 39 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+            <path d="M30 12 Q16 38 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+            <path d="M30 12 Q75 28 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+            <path d="M30 12 Q66 30 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+            <path d="M30 12 Q57 32 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+            <path d="M30 12 Q48 34 41 59" fill="none" stroke="#A34E8C" stroke-width="1.7"/>
+            <path d="M30 12 Q24 38 41 59 Q47 34 30 12 Z" fill="#FFF7FB"/>
+            <path d="M30 12 Q33 37 41 59" fill="none" stroke="#E7C3DC" stroke-width="1.5"/>
+            <path d="M30 12 C28 7 25 5 21 3" fill="none" stroke="#8E3B63" stroke-width="3.6" stroke-linecap="round"/>
+            <path d="M38 59 l-2 4 M41 60 l0 4 M44 59 l2 4" stroke="#C9A96F" stroke-width="1.8" stroke-linecap="round"/>
+          </g>
+          <marker id="rgArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="var(--soft)" stroke-width="1.5"/></marker>
+        </defs>
+        <rect x="252" y="30" width="168" height="50" rx="10" fill="#9C3F7C"/>
+        <text x="336" y="60" text-anchor="middle" style="font-size:13px;fill:#fff;font-weight:600">📊 <tspan lang="pt">Painel na sua rede</tspan><tspan lang="en">Dashboard on your network</tspan></text>
+        <rect x="448" y="36" width="162" height="40" rx="6" fill="var(--accent-soft)" stroke="var(--accent)"/>
+        <text x="529" y="61" text-anchor="middle" style="font-size:12px;fill:var(--accent-ink);font-weight:600">🔏 <tspan lang="pt">catálogo assinado</tspan><tspan lang="en">signed catalog</tspan></text>
+        <line x1="470" y1="56" x2="420" y2="56" stroke="var(--line)" stroke-width="1"/>
+        <circle class="rgd-cat" r="4.5" fill="#C77CB0"/>
+        <line x1="300" y1="140" x2="336" y2="82" stroke="var(--line)" stroke-width="1"/>
+        <text x="248" y="118" style="font-size:10.5px;fill:var(--soft)"><tspan lang="pt">metadado</tspan><tspan lang="en">metadata</tspan> ↑</text>
+        <circle class="rgd-up" r="4.5" fill="#9C3F7C"/>
+        <rect x="24" y="150" width="84" height="46" rx="8" fill="color-mix(in srgb,var(--danger) 12%,var(--surface))" stroke="color-mix(in srgb,var(--danger) 40%,var(--surface))"/>
+        <text x="66" y="180" text-anchor="middle" style="font-size:20px">💀</text>
+        <text x="66" y="212" text-anchor="middle" style="font-size:11px;fill:var(--muted)"><tspan lang="pt">máquina invadida</tspan><tspan lang="en">compromised machine</tspan></text>
+        <line x1="108" y1="172" x2="262" y2="172" stroke="var(--soft)" stroke-width="1.5" stroke-dasharray="5 5"/>
+        <text x="185" y="163" text-anchor="middle" style="font-size:11px;fill:var(--soft)"><tspan lang="pt">criptografia remota via SMB</tspan><tspan lang="en">remote encryption over SMB</tspan></text>
+        <circle class="rgd-pkt" r="7" fill="var(--danger)"/>
+        <circle class="rgd-ring" cx="300" cy="172" r="36" fill="none" stroke="var(--danger)" stroke-width="2.5"/>
+        <use href="#rgOnion" transform="translate(270.6 141.6) scale(0.9)"/>
+        <text x="300" y="228" text-anchor="middle" style="font-size:11.5px;fill:var(--accent-ink);font-weight:600"><tspan lang="pt">agente detecta · FS01</tspan><tspan lang="en">agent detects · FS01</tspan></text>
+        <line x1="300" y1="206" x2="300" y2="250" stroke="var(--line)" stroke-width="1"/>
+        <text x="300" y="246" text-anchor="middle" style="font-size:11px;fill:var(--soft)"><tspan lang="pt">aplica a política</tspan><tspan lang="en">applies policy</tspan> ↓</text>
+        <g class="rgd-st1"><rect x="70" y="262" width="96" height="34" rx="7" fill="var(--accent-soft)"/><text x="118" y="284" text-anchor="middle" style="font-size:11px;fill:var(--accent-ink);font-weight:600"><tspan lang="pt">bloqueia IP</tspan><tspan lang="en">block IP</tspan></text></g>
+        <g class="rgd-st2"><rect x="174" y="262" width="84" height="34" rx="7" fill="var(--accent-soft)"/><text x="216" y="284" text-anchor="middle" style="font-size:11px;fill:var(--accent-ink);font-weight:600"><tspan lang="pt">nega acesso</tspan><tspan lang="en">deny access</tspan></text></g>
+        <g class="rgd-st3"><rect x="266" y="262" width="92" height="34" rx="7" fill="var(--accent-soft)"/><text x="312" y="284" text-anchor="middle" style="font-size:11px;fill:var(--accent-ink);font-weight:600"><tspan lang="pt">encerra sessão</tspan><tspan lang="en">close session</tspan></text></g>
+        <line x1="358" y1="279" x2="470" y2="279" stroke="var(--line)" stroke-width="1.5" marker-end="url(#rgArrow)"/>
+        <g class="rgd-saved"><rect x="472" y="260" width="140" height="40" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="542" y="285" text-anchor="middle" style="font-size:12px;fill:var(--ok);font-weight:600">🗄️ <tspan lang="pt">ação registrada</tspan><tspan lang="en">action logged</tspan> ✓</text></g>
+      </svg>
+    </div>
+
     <div class="how">
       <div class="step"><h3 lang="pt">Observa</h3><h3 lang="en">Watches</h3><p lang="pt">Eventos de auditoria do Windows, arquivos-canário nas pastas que você indicar, file screens do FSRM e as cópias de sombra.</p><p lang="en">Windows audit events, canary files in the folders you choose, FSRM file screens and shadow copies.</p></div>
       <div class="step"><h3 lang="pt">Atribui</h3><h3 lang="en">Attributes</h3><p lang="pt">Agrupa a atividade por conta, IP de origem e compartilhamento, e dá um nível: Média ou Alta.</p><p lang="en">Groups activity by account, source IP and share, and assigns a level: Medium or High.</p></div>
