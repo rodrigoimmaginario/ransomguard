@@ -98,7 +98,7 @@ test('usage registration is optional, stores nothing and is the only data the pr
 test('authorship, license, structured data and share image match the open-source release', () => {
   assert.match(html, /© 2026 Rodrigo Immaginario/);
   assert.match(html, /Licença MIT/);
-  assert.doesNotMatch(html + og, /IPSEC|propriet[áa]ri|proprietary|licen[çc]a comercial|plano pago|paid plan/i);
+  assert.doesNotMatch(html.slice(0, html.indexOf('</head>')) + og, /IPSEC|propriet[áa]ri|proprietary|licen[çc]a comercial|plano pago|paid plan/i);
   const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])['@graph'];
   const app = graph.find((n) => n['@type'] === 'SoftwareApplication');
   assert.equal(app.license, 'https://opensource.org/licenses/MIT');
@@ -108,6 +108,31 @@ test('authorship, license, structured data and share image match the open-source
   assert.match(og, /Free and open source/);
   assert.match(og, new RegExp(tag.replace(/\./g, '\\.')));
   assert.doesNotMatch(og, /Piloto|pilot|Release Candidate/i);
+});
+
+test('the sibling project is introduced at the limit, in its own section, FAQ and footer in PT/EN', () => {
+  const url = 'https://rodrigoimmaginario.github.io/ipsec-studio/';
+  const sibling = section('projeto-irmao');
+  assert.ok(sibling, 'sibling section required');
+  assert.ok(html.indexOf('id="seguranca"') < html.indexOf('id="projeto-irmao"'));
+  assert.ok(html.indexOf('id="projeto-irmao"') < html.indexOf('id="registro"'));
+  assert.match(sibling, /Rede.*IPsec Studio/s);
+  assert.match(sibling, /Network.*IPsec Studio/s);
+  assert.match(sibling, /Servidor.*RansomGuard/s);
+  assert.match(sibling, /Server.*RansomGuard/s);
+  assert.match(sibling, /funcionam separadamente|work independently/);
+  assert.match(sibling, /pode conter/);
+  assert.match(sibling, /can contain/);
+  assert.doesNotMatch(sibling, /integração automática|automatic integration|proteção instantânea|instant protection/i);
+  assert.match(sibling, /lang="pt"/);
+  assert.match(sibling, /lang="en"/);
+  assert.match(section('limites'), /data-sibling-limit/);
+  assert.match(section('faq'), /data-sibling-faq/);
+  assert.match(html.match(/<footer>[\s\S]*?<\/footer>/)?.[0] ?? '', /IPsec Studio/);
+  for (const area of [sibling, section('limites'), section('faq'), html.match(/<footer>[\s\S]*?<\/footer>/)?.[0] ?? '']) {
+    assert.ok(area.includes(`href="${url}"`), 'canonical Studio URL in each contact point');
+    assert.doesNotMatch(area, /\?ref=|utm_|<script[^>]+src=["']https?:/i, 'no tracking or remote scripts');
+  }
 });
 
 test('a first-time visitor sees the purpose before the details: the problem, what it does, and the animated diagram', () => {
